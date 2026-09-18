@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>算法歧视众包观测 · 门户</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 55%, #fdf4ff 100%);
+    min-height: 100vh; color: #1e293b;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .wrap { width: 100%; max-width: 960px; padding: 48px 20px 64px; }
+  header { text-align: center; margin-bottom: 40px; }
+  .badge {
+    display: inline-block; font-size: 12px; letter-spacing: 2px; color: #4f46e5;
+    background: #e0e7ff; border-radius: 999px; padding: 4px 14px; margin-bottom: 16px;
+  }
+  h1 { font-size: 32px; font-weight: 800; color: #0f172a; margin-bottom: 12px; }
+  .sub { color: #64748b; font-size: 15px; line-height: 1.8; max-width: 640px; margin: 0 auto; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; margin-top: 36px; }
+  .card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+    padding: 28px 24px; display: flex; flex-direction: column; gap: 12px;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, .05); transition: transform .15s, box-shadow .15s;
+  }
+  .card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(79, 70, 229, .12); }
+  .card .icon { font-size: 30px; }
+  .card h2 { font-size: 18px; color: #0f172a; }
+  .card p { font-size: 13.5px; color: #64748b; line-height: 1.7; flex: 1; }
+  .btn {
+    display: inline-block; text-align: center; text-decoration: none; cursor: pointer;
+    border: none; border-radius: 10px; padding: 12px 18px; font-size: 15px; font-weight: 600;
+    background: #4f46e5; color: #fff; transition: background .15s;
+  }
+  .btn:hover { background: #4338ca; }
+  .btn.secondary { background: #0f172a; }
+  .btn.secondary:hover { background: #1e293b; }
+  .btn.ghost { background: #fff; color: #4f46e5; border: 1.5px solid #c7d2fe; }
+  .btn.ghost:hover { background: #eef2ff; }
+  footer { margin-top: 48px; text-align: center; color: #94a3b8; font-size: 12.5px; line-height: 1.8; }
+  .privacy {
+    margin-top: 28px; background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
+    border-radius: 12px; padding: 14px 18px; font-size: 13px; line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="badge">公益诉讼 · 众包数据</div>
+    <h1>算法歧视众包观测</h1>
+    <p class="sub">
+      在你正常浏览电商商品页时，插件自动记录公开价格、优惠与脱敏后的浏览环境，
+      用于检验「不同用户看到不同价格」的算法定价歧视。数据越多，证据越有力。
+    </p>
+  </header>
+
+  <div class="cards">
+    <div class="card">
+      <div class="icon">📊</div>
+      <h2>我的看板</h2>
+      <p>无需注册、无需密码。点击即生成匿名身份，随时查看自己贡献的观测记录与统计。</p>
+      <a class="btn" href="/me">一键进入我的看板</a>
+    </div>
+    <div class="card">
+      <div class="icon">🛡️</div>
+      <h2>管理员控制台</h2>
+      <p>持有管理员密钥的项目维护者，从此入口登录后可查看全部数据、执行统计分析与数据管理。</p>
+      <a class="btn secondary" href="/admin-login">管理员登录</a>
+    </div>
+    <div class="card">
+      <div class="icon">🧩</div>
+      <h2>下载插件</h2>
+      <p>获取 Edge / Chrome 浏览器扩展（解压加载版），附逐步安装说明，装好后浏览商品页即自动采集。</p>
+      <a class="btn ghost" href="/download">下载插件与安装说明</a>
+    </div>
+  </div>
+
+  <div class="privacy">
+    🔒 <b>隐私说明</b>：插件仅在你浏览商品页时采集<b>公开显示的价格与优惠信息</b>，
+    昵称等个人信息一律打码后才入库；身份仅为随机生成的匿名编号，不收集账号、手机号等任何注册信息。可随时卸载插件停止采集。
+  </div>
+
+  <footer>
+    算法歧视观测项目 · 数据仅用于公益性质的歧视检验研究<br>
+    <a href="/health" style="color:#94a3b8">服务状态</a> · <a href="/console" style="color:#94a3b8">控制台（需管理员）</a>
+  </footer>
+</div>
+</body>
+</html>

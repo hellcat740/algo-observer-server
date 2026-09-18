@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>观测数据管理 · 算法歧视证据搜集</title>
+<style>
+  :root {
+    --bg: #f4f6fa;
+    --card: #ffffff;
+    --border: #e3e8f0;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --danger: #dc2626;
+    --chip: #eef2ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  header {
+    background: linear-gradient(120deg, #1e3a8a, #2563eb);
+    color: #fff; padding: 16px 24px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 18px; font-weight: 600; }
+  .key-box { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .key-box input {
+    padding: 7px 12px; border-radius: 6px; border: none; width: 240px;
+    font-size: 13px; outline: none;
+  }
+  .key-box button {
+    padding: 7px 14px; border: none; border-radius: 6px; cursor: pointer;
+    background: rgba(255,255,255,.18); color: #fff; font-size: 13px;
+  }
+  .key-box button:hover { background: rgba(255,255,255,.3); }
+  main { max-width: 1200px; margin: 20px auto; padding: 0 16px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  .card h3 { font-size: 13px; color: var(--muted); font-weight: 500; margin-bottom: 8px; }
+  .card .big { font-size: 28px; font-weight: 700; color: var(--primary); }
+  .platform-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+  .platform-row .cnt { font-weight: 600; color: var(--primary-dark); }
+  .bars { display: flex; align-items: flex-end; gap: 6px; height: 70px; margin-top: 6px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+  .bar { width: 100%; background: linear-gradient(180deg,#60a5fa,#2563eb); border-radius: 3px 3px 0 0; min-height: 2px; }
+  .bar-label { font-size: 10px; color: var(--muted); }
+  .bar-val { font-size: 11px; font-weight: 600; color: var(--primary-dark); }
+
+  .filters {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    margin-bottom: 14px;
+  }
+  .filters label { font-size: 13px; color: var(--muted); }
+  .filters input, .filters select {
+    padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px; outline: none; background: #fff;
+  }
+  .filters input:focus, .filters select:focus { border-color: var(--primary); }
+  .btn {
+    padding: 8px 18px; background: var(--primary); color: #fff; border: none;
+    border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .btn:hover { background: var(--primary-dark); }
+  .btn.ghost { background: #fff; color: var(--text); border: 1px solid var(--border); }
+  .btn.small { padding: 4px 10px; font-size: 12px; }
+  .btn.danger { background: var(--danger); }
+  .btn.danger:hover { background: #b91c1c; }
+
+  .table-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+  th { background: #f8fafc; color: var(--muted); font-weight: 500; white-space: nowrap; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #f0f6ff; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--chip); color: var(--primary-dark); font-size: 12px; }
+  .chip.gray { background: #f3f4f6; color: var(--muted); }
+  .ellipsis { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .muted { color: var(--muted); }
+
+  .pager { display: flex; align-items: center; gap: 12px; padding: 12px 16px; justify-content: flex-end; }
+  .pager span { color: var(--muted); font-size: 13px; }
+
+  /* 详情抽屉 */
+  .drawer-mask {
+    position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; z-index: 40;
+  }
+  .drawer {
+    position: fixed; top: 0; right: -560px; width: 540px; max-width: 92vw; height: 100vh;
+    background: #fff; z-index: 50; transition: right .25s ease; box-shadow: -4px 0 20px rgba(0,0,0,.15);
+    display: flex; flex-direction: column;
+  }
+  .drawer.open { right: 0; }
+  .drawer-mask.open { display: block; }
+  .drawer-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
+  .drawer-head h2 { font-size: 15px; }
+  .drawer-head button { margin-left: auto; background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); }
+  .drawer-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
+  .kv { display: grid; grid-template-columns: 170px 1fr; gap: 6px 12px; font-size: 13px; }
+  .kv dt { color: var(--muted); word-break: break-all; }
+  .kv dd { word-break: break-all; }
+  pre.json {
+    margin-top: 16px; background: #0f172a; color: #a5f3fc; padding: 14px; border-radius: 8px;
+    font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+  }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--danger); color: #fff; padding: 10px 20px; border-radius: 8px;
+    display: none; z-index: 99; font-size: 13px;
+  }
+  #empty { padding: 40px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📊 算法歧视观测数据 · 管理台</h1>
+  <div class="key-box">
+    <input id="apiKeyInput" type="password" placeholder="请输入 API Key（保存在本机浏览器）">
+    <button onclick="saveKey()">保存</button>
+  </div>
+</header>
+
+<main>
+  <!-- 统计卡片 -->
+  <div class="cards">
+    <div class="card">
+      <h3>总记录数</h3>
+      <div class="big" id="statTotal">—</div>
+    </div>
+    <div class="card">
+      <h3>各平台样本量</h3>
+      <div id="statPlatforms" class="muted">暂无数据</div>
+    </div>
+    <div class="card">
+      <h3>最近 7 天采集趋势（UTC）</h3>
+      <div class="bars" id="statDays"></div>
+    </div>
+  </div>
+
+  <!-- 筛选栏 -->
+  <div class="filters">
+    <label>商品ID <input id="fProductId" placeholder="精确匹配"></label>
+    <label>平台
+      <select id="fPlatform">
+        <option value="">全部</option>
+        <option value="meituan">美团</option>
+        <option value="taobao">淘宝</option>
+        <option value="tmall">天猫</option>
+        <option value="jd">京东</option>
+        <option value="pinduoduo">拼多多</option>
+        <option value="yangkeduo">洋客多</option>
+        <option value="eleme">饿了么</option>
+        <option value="dianping">大众点评</option>
+        <option value="ctrip">携程</option>
+        <option value="didi">滴滴</option>
+      </select>
+    </label>
+    <label>城市 <input id="fCity" placeholder="IP 城市"></label>
+    <label>开始 <input id="fStart" type="datetime-local"></label>
+    <label>结束 <input id="fEnd" type="datetime-local"></label>
+    <label>用户类型
+      <select id="fNewUser">
+        <option value="">全部</option>
+        <option value="true">新用户</option>
+        <option value="false">老用户</option>
+      </select>
+    </label>
+    <button class="btn" onclick="search()">查询</button>
+    <button class="btn ghost" onclick="resetFilters()">重置</button>
+  </div>
+
+  <!-- 记录表格 -->
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>采集时间(UTC)</th><th>平台</th><th>商品名</th><th>商品ID</th>
+          <th>标价(元)</th><th>到手价(元)</th><th>城市</th><th>登录态</th><th>新用户</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="empty" style="display:none">暂无符合条件的记录</div>
+    <div class="pager">
+      <button class="btn ghost" onclick="prevPage()">上一页</button>
+      <span id="pageInfo">第 1 页</span>
+      <button class="btn ghost" onclick="nextPage()">下一页</button>
+    </div>
+  </div>
+</main>
+
+<!-- 详情抽屉 -->
+<div class="drawer-mask" id="drawerMask" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h2>观测详情</h2>
+    <button onclick="closeDrawer()">×</button>
+  </div>
+  <div class="drawer-body">
+    <dl class="kv" id="detailKv"></dl>
+    <pre class="json" id="detailJson"></pre>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- 状态 ----------
+let apiKey = localStorage.getItem('obs_api_key') || '';
+let page = 1, pageSize = 20, total = 0;
+let pageItems = {};  // 当前页记录：observation_id → 行数据（删除确认框取商品名用）
+
+const $ = id => document.getElementById(id);
+$('apiKeyInput').value = apiKey;
+
+function saveKey() {
+  apiKey = $('apiKeyInput').value.trim();
+  localStorage.setItem('obs_api_key', apiKey);
+  toast('API Key 已保存');
+  loadAll();
+}
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2600);
+}
+
+// 统一请求封装：带上鉴权头；401/403 时提示保存 Key
+async function api(path) {
+  const resp = await fetch(path, { headers: { 'X-API-Key': apiKey } });
+  if (resp.status === 401 || resp.status === 403) {
+    toast('鉴权失败：请在右上角输入正确的 API Key 并保存');
+    throw new Error('unauthorized');
+  }
+  if (!resp.ok) {
+    toast('请求失败：HTTP ' + resp.status);
+    throw new Error('http ' + resp.status);
+  }
+  return resp.json();
+}
+
+// ---------- 统计卡片 ----------
+async function loadStats() {
+  try {
+    const s = await api('/api/stats/summary');
+    $('statTotal').textContent = s.total;
+    $('statPlatforms').innerHTML = s.by_platform.length
+      ? s.by_platform.map(p =>
+          `<div class="platform-row"><span>${esc(p.platform_code)}</span><span class="cnt">${p.count}</span></div>`
+        ).join('')
+      : '<span class="muted">暂无数据</span>';
+    const max = Math.max(1, ...s.last_7_days.map(d => d.count));
+    $('statDays').innerHTML = s.last_7_days.map(d => `
+      <div class="bar-col">
+        <span class="bar-val">${d.count}</span>
+        <div class="bar" style="height:${Math.round(d.count / max * 44) + 2}px"></div>
+        <span class="bar-label">${d.day.slice(5)}</span>
+      </div>`).join('');
+  } catch (e) { /* 已提示 */ }
+}
+
+// ---------- 列表 ----------
+function buildQuery() {
+  const p = new URLSearchParams({ page, page_size: pageSize });
+  const pid = $('fProductId').value.trim();
+  if (pid) p.set('product_id', pid);
+  const pf = $('fPlatform').value;
+  if (pf) p.set('platform_code', pf);
+  const city = $('fCity').value.trim();
+  if (city) p.set('ip_city', city);
+  const st = $('fStart').value;
+  if (st) p.set('start_ts', new Date(st).toISOString());
+  const en = $('fEnd').value;
+  if (en) p.set('end_ts', new Date(en).toISOString());
+  const nu = $('fNewUser').value;
+  if (nu) p.set('is_new_user', nu);
+  return p.toString();
+}
+
+async function loadList() {
+  try {
+    const data = await api('/api/observations?' + buildQuery());
+    total = data.total;
+    const tb = $('tbody');
+    if (!data.items.length) {
+      tb.innerHTML = ''; $('empty').style.display = 'block';
+    } else {
+      $('empty').style.display = 'none';
+      pageItems = {};
+      data.items.forEach(o => { pageItems[o.observation_id] = o; });
+      tb.innerHTML = data.items.map(o => `
+        <tr onclick="showDetail('${o.observation_id}')">
+          <td>${fmtTs(o.fetch_ts)}</td>
+          <td><span class="chip">${esc(o.platform_code)}</span></td>
+          <td class="ellipsis" title="${esc(o.product_name)}">${esc(o.product_name)}</td>
+          <td class="ellipsis muted">${esc(o.product_id)}</td>
+          <td>${fen2yuan(o.display_price_cents)}</td>
+          <td>${o.actual_pay_price_cents == null ? '—' : fen2yuan(o.actual_pay_price_cents)}</td>
+          <td>${esc(o.ip_city || '—')}</td>
+          <td>${boolChip(o.is_login)}</td>
+          <td>${boolChip(o.is_new_user)}</td>
+          <td onclick="event.stopPropagation()">
+            <button class="btn small danger" onclick="delObs('${o.observation_id}')">删除</button>
+          </td>
+        </tr>`).join('');
+    }
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    $('pageInfo').textContent = `第 ${page} / ${pages} 页 · 共 ${total} 条`;
+  } catch (e) { /* 已提示 */ }
+}
+
+// ---------- 详情抽屉 ----------
+async function showDetail(id) {
+  try {
+    const o = await api('/api/observations/' + id);
+    const labels = {
+      observation_id: '观测 ID', task_id: '任务 ID', platform_code: '平台',
+      source_type: '来源类型', product_id: '商品 ID', product_name: '商品名',
+      seller_id: '卖家 ID', product_url: '商品链接',
+      display_price_cents: '标价', actual_pay_price_cents: '到手价',
+      currency: '币种', discount_coupon_amount_cents: '优惠券金额',
+      promo_type: '促销类型', promo_label: '促销文案',
+      is_login: '是否登录', membership_level: '会员等级', is_new_user: '是否新用户',
+      register_days: '注册天数', user_agent: 'User-Agent', platform: '设备平台',
+      language: '语言', device_memory: '设备内存(GB)', hardware_concurrency: 'CPU 核数',
+      screen_resolution: '屏幕分辨率', device_price_score_estimate: '设备档次估算分',
+      ip_city: 'IP 城市', shipping_city: '收货/发货城市', peak_hour: '是否高峰时段',
+      stock_hint: '库存提示', fetch_ts: '采集时间', created_at: '入库时间',
+      screenshot_path: '截图路径', dom_price_text: '价格节点文本',
+      dom_snapshot_path: 'DOM 快照路径', source_code_version: '采集代码版本',
+    };
+    const priceFields = ['display_price_cents', 'actual_pay_price_cents', 'discount_coupon_amount_cents'];
+    $('detailKv').innerHTML = Object.keys(labels).map(k => {
+      let v = o[k];
+      if (priceFields.includes(k) && v != null) v = fen2yuan(v) + `（${v} 分）`;
+      if (v == null) v = '<span class="muted">—</span>';
+      else if (typeof v === 'boolean') v = v ? '是' : '否';
+      else v = esc(String(v));
+      return `<dt>${labels[k]}</dt><dd>${v}</dd>`;
+    }).join('');
+    $('detailJson').textContent = JSON.stringify(o, null, 2);
+    $('drawer').classList.add('open');
+    $('drawerMask').classList.add('open');
+  } catch (e) { /* 已提示 */ }
+}
+
+function closeDrawer() {
+  $('drawer').classList.remove('open');
+  $('drawerMask').classList.remove('open');
+}
+
+// ---------- 删除记录 ----------
+async function delObs(id) {
+  const o = pageItems[id];
+  const name = o ? o.product_name : '';
+  if (!confirm(`确定删除这条观测记录？\n\n商品：${name}\nID：${id.slice(0, 8)}…\n\n此操作不可恢复。`)) return;
+  try {
+    const resp = await fetch('/api/observations/' + id, {
+      method: 'DELETE', headers: { 'X-API-Key': apiKey },
+    });
+    if (resp.status === 401 || resp.status === 403) { toast('鉴权失败：请检查 API Key'); return; }
+    if (resp.status === 404) { toast('记录不存在（可能已被删除）'); loadAll(); return; }
+    if (!resp.ok) { toast('删除失败：HTTP ' + resp.status); return; }
+    toast('已删除记录 ' + id.slice(0, 8) + '…');
+    // 删的是当前页最后一条且不在第一页 → 回退一页，避免停在空页
+    if (Object.keys(pageItems).length === 1 && page > 1) page--;
+    loadAll();
+  } catch (e) {
+    toast('删除失败：网络错误');
+  }
+}
+
+// ---------- 交互 ----------
+function search() { page = 1; loadList(); }
+function resetFilters() {
+  ['fProductId', 'fCity', 'fStart', 'fEnd'].forEach(id => $(id).value = '');
+  $('fPlatform').value = ''; $('fNewUser').value = '';
+  page = 1; loadList();
+}
+function prevPage() { if (page > 1) { page--; loadList(); } }
+function nextPage() {
+  if (page < Math.ceil(total / pageSize)) { page++; loadList(); }
+}
+
+// ---------- 工具 ----------
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fen2yuan(fen) { return '¥' + (fen / 100).toFixed(2); }
+function fmtTs(ts) {
+  const d = new Date(ts);
+  return d.toISOString().replace('T', ' ').slice(0, 19);
+}
+function boolChip(v) {
+  if (v == null) return '<span class="muted">—</span>';
+  return v ? '<span class="chip">是</span>' : '<span class="chip gray">否</span>';
+}
+
+function loadAll() { loadStats(); loadList(); }
+loadAll();
+</script>
+</body>
+</html>

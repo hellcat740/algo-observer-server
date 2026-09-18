@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>价格歧视统计分析 · 算法歧视证据搜集</title>
+<style>
+  :root {
+    --bg: #f4f6fa;
+    --card: #ffffff;
+    --border: #e3e8f0;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --danger: #dc2626;
+    --warn: #d97706;
+    --ok: #059669;
+    --chip: #eef2ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  header {
+    background: linear-gradient(120deg, #1e3a8a, #2563eb);
+    color: #fff; padding: 16px 24px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header nav a { color: rgba(255,255,255,.85); font-size: 13px; text-decoration: none; margin-left: 14px; }
+  header nav a:hover { color: #fff; text-decoration: underline; }
+  .key-box { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .key-box input {
+    padding: 7px 12px; border-radius: 6px; border: none; width: 220px;
+    font-size: 13px; outline: none;
+  }
+  .key-box button {
+    padding: 7px 14px; border: none; border-radius: 6px; cursor: pointer;
+    background: rgba(255,255,255,.18); color: #fff; font-size: 13px;
+  }
+  .key-box button:hover { background: rgba(255,255,255,.3); }
+  main { max-width: 1000px; margin: 20px auto; padding: 0 16px 40px; }
+
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  .selector { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .selector label { font-size: 13px; color: var(--muted); }
+  .selector select {
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px; min-width: 260px; background: #fff;
+  }
+  .btn {
+    padding: 8px 18px; background: var(--primary); color: #fff; border: none;
+    border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .btn:hover { background: var(--primary-dark); }
+  .btn.ghost { background: #fff; color: var(--text); border: 1px solid var(--border); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* 判定徽章 */
+  .badge {
+    border-radius: 10px; padding: 20px 24px; color: #fff; margin-bottom: 14px;
+  }
+  .badge.warn { background: linear-gradient(120deg, #b45309, #d97706); }
+  .badge.ok { background: linear-gradient(120deg, #047857, #059669); }
+  .badge.gray { background: linear-gradient(120deg, #4b5563, #6b7280); }
+  .badge.soft { background: linear-gradient(120deg, #b45309, #f59e0b); }
+  .badge.danger { background: linear-gradient(120deg, #b91c1c, #dc2626); }
+  .badge.sub { padding: 10px 18px; margin-top: -8px; font-size: 13px; font-weight: 600; }
+  .badge h2 { font-size: 20px; margin-bottom: 6px; }
+  .badge p { font-size: 13px; opacity: .92; }
+  .badge ul { margin: 10px 0 0 18px; font-size: 13px; }
+  .badge li { margin: 3px 0; }
+
+  /* 步骤卡片 */
+  .step { border-left: 4px solid var(--primary); }
+  .step h3 { font-size: 15px; margin-bottom: 4px; }
+  .step .step-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .step-num {
+    display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center;
+    background: var(--primary); color: #fff; border-radius: 50%; font-size: 12px; margin-right: 6px;
+  }
+
+  table.stat { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  table.stat th, table.stat td {
+    padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 13px; text-align: right;
+  }
+  table.stat th { background: #f8fafc; color: var(--muted); font-weight: 500; }
+  table.stat td:first-child, table.stat th:first-child { text-align: left; }
+  .hl { color: var(--warn); font-weight: 700; }
+  .ok-text { color: var(--ok); font-weight: 600; }
+  .bad-text { color: var(--danger); font-weight: 600; }
+  .muted { color: var(--muted); }
+  .explain {
+    background: #f8fafc; border: 1px dashed var(--border); border-radius: 8px;
+    padding: 10px 14px; font-size: 13px; color: var(--muted); margin-top: 10px; line-height: 1.7;
+  }
+  .rules { list-style: none; margin-top: 6px; }
+  .rules li { padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 13px; display: flex; gap: 8px; align-items: flex-start; }
+  .rules .icon { font-size: 15px; }
+  .conclusion {
+    margin-top: 12px; padding: 12px 16px; border-radius: 8px; font-weight: 600; font-size: 14px;
+  }
+  .conclusion.warn { background: #fef3c7; color: #92400e; }
+  .conclusion.soft { background: #ffedd5; color: #9a3412; }
+  .conclusion.ok { background: #d1fae5; color: #065f46; }
+  .conclusion.gray { background: #f3f4f6; color: #4b5563; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--danger); color: #fff; padding: 10px 20px; border-radius: 8px;
+    display: none; z-index: 99; font-size: 13px;
+  }
+  #loading { text-align: center; color: var(--muted); padding: 30px; display: none; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--chip); color: var(--primary-dark); font-size: 12px; }
+  .platform-result table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .platform-result th, .platform-result td { padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 13px; text-align: left; }
+  .platform-result th { background: #f8fafc; color: var(--muted); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔍 价格歧视统计分析</h1>
+  <nav><a href="/admin">← 数据管理台</a></nav>
+  <div class="key-box">
+    <input id="apiKeyInput" type="password" placeholder="请输入 API Key（与数据管理台共用）">
+    <button onclick="saveKey()">保存</button>
+  </div>
+</header>
+
+<main>
+  <!-- 商品选择（对比用户对由后端自动选取：价差最大的两个匿名用户） -->
+  <div class="panel selector">
+    <label>商品
+      <select id="productSelect"><option value="">加载中…</option></select>
+    </label>
+    <span class="muted" style="font-size:12px">自动选取「价差最大的匿名用户对」（用户A=低价侧，用户B=高价侧），小样本自动降级为描述性输出</span>
+    <button class="btn" id="analyzeBtn" onclick="runAnalysis()">开始分析</button>
+    <button class="btn ghost" onclick="runPlatformAnalysis()">平台级复现检验</button>
+  </div>
+
+  <div id="loading">计算中，请稍候（回归分析可能需要几秒）…</div>
+  <div id="result"></div>
+
+  <!-- 平台级结果 -->
+  <div id="platformResult"></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- 状态与工具 ----------
+let apiKey = localStorage.getItem('obs_api_key') || '';  // 与数据管理台共用同一个 Key
+const $ = id => document.getElementById(id);
+$('apiKeyInput').value = apiKey;
+
+// reason_code 中文释义（与后端判定规则一一对应）
+const REASON_CN = {
+  MWU_SIGNIFICANT: '✔ MWU_SIGNIFICANT：Mann-Whitney U 检验显著（p < 0.05），两用户价格分布差异超出随机波动',
+  PRICE_DIFF_OVER_5PCT: '✔ PRICE_DIFF_OVER_5PCT：两用户中位数价差超过 5%（相对低价侧）',
+  REGRESSION_SIGNIFICANT: '✔ REGRESSION_SIGNIFICANT：控制城市/时段/设备等因素后，「是否高价侧用户」在回归中仍显著（p < 0.05）',
+  REGRESSION_NOT_APPLICABLE: '— REGRESSION_NOT_APPLICABLE：回归不适用（样本不足或变量无变异），不计入否决',
+  SMALL_SAMPLE: '— SMALL_SAMPLE：样本量过小，Mann-Whitney U 检验降级为纯描述性输出（p 记 null）',
+  LOW_CONFIDENCE: '⚠ LOW_CONFIDENCE：疑似（低置信）——价差 >5%，统计检验降级且无其他解释',
+  INSUFFICIENT_DATA: '✘ INSUFFICIENT_DATA：带用户标识的观测不足 2 个不同匿名用户',
+  ANALYSIS_ERROR: '✘ ANALYSIS_ERROR：分析过程出错',
+  FAKE_DISCOUNT_PATTERN: '⚠ FAKE_DISCOUNT_PATTERN：假折扣型歧视——原价存在群体差异且折扣深度超 10%',
+};
+
+function saveKey() {
+  apiKey = $('apiKeyInput').value.trim();
+  localStorage.setItem('obs_api_key', apiKey);
+  toast('API Key 已保存');
+  loadProducts();
+}
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2600);
+}
+async function api(path) {
+  const resp = await fetch(path, { headers: { 'X-API-Key': apiKey } });
+  if (resp.status === 401 || resp.status === 403) {
+    toast('鉴权失败：请在右上角输入正确的 API Key 并保存');
+    throw new Error('unauthorized');
+  }
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    toast('请求失败：' + (body.detail || 'HTTP ' + resp.status));
+    throw new Error('http ' + resp.status);
+  }
+  return resp.json();
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fen(f) { return '¥' + (f / 100).toFixed(2); }
+function fenDual(f) { return `${Math.round(f)} 分（${fen(f)}）`; }
+
+// ---------- 商品列表 ----------
+async function loadProducts() {
+  try {
+    const data = await api('/api/analysis/products');
+    const sel = $('productSelect');
+    if (!data.products.length) {
+      sel.innerHTML = '<option value="">（暂无可分析商品：需要同一商品 ≥2 个不同匿名用户的观测）</option>';
+      return;
+    }
+    sel.innerHTML = data.products.map(p =>
+      `<option value="${esc(p.product_id)}">${esc(p.product_name || p.product_id)}（${esc(p.product_id)} · ${p.n} 条）</option>`
+    ).join('');
+  } catch (e) { /* 已提示 */ }
+}
+
+// ---------- 单商品分析 ----------
+async function runAnalysis() {
+  const pid = $('productSelect').value;
+  if (!pid) { toast('请先选择商品'); return; }
+  $('loading').style.display = 'block';
+  $('result').innerHTML = '';
+  $('platformResult').innerHTML = '';
+  try {
+    const r = await api(`/api/analysis/price-discrimination?product_id=${encodeURIComponent(pid)}`);
+    renderResult(r);
+  } catch (e) { /* 已提示 */ }
+  $('loading').style.display = 'none';
+}
+
+// ---------- 渲染：判定徽章 ----------
+function renderBadge(r) {
+  let cls, title, sub;
+  const insufficient = (r.reason_code || []).includes('INSUFFICIENT_DATA');
+  if (insufficient) {
+    cls = 'gray'; title = '📭 数据不足';
+    sub = esc(r.insufficient_reason || '带用户标识的观测不足 2 个不同匿名用户，无法构造用户对');
+  } else if (r.flag) {
+    cls = 'warn'; title = '⚠️ 疑似差别待遇';
+    sub = `${esc(r.diff_direction || '')}，且统计检验显著`;
+  } else if (r.low_confidence) {
+    cls = 'soft'; title = '🤔 疑似差别待遇（低置信）';
+    sub = `${esc(r.diff_direction || '')}；样本量过小，统计检验降级为描述性输出，仅凭「价差 >5% 且无其他解释」标记，建议继续采集后复测`;
+  } else {
+    cls = 'ok'; title = '✅ 未发现显著差异';
+    sub = '现有数据下，两用户价格差异未达到判定标准（不代表可以排除歧视，样本扩大后建议复测）';
+  }
+  const pairText = (r.user_a && r.user_b)
+    ? ` · 对比对：用户A（低价）<b>${esc(r.user_a.user_ref_short)}…</b>（${r.user_a.n} 条） vs 用户B（高价）<b>${esc(r.user_b.user_ref_short)}…</b>（${r.user_b.n} 条） · 该商品共 ${r.user_count} 个匿名用户`
+    : '';
+  const reasons = (r.reason_code || []).map(c =>
+    `<li>${esc(REASON_CN[c] || c)}</li>`).join('');
+  const fakeSub = r.fake_discount
+    ? `<div class="badge danger sub">⚠ 假折扣型歧视（折扣深度 ${r.discount_depth_percent != null ? esc(String(r.discount_depth_percent)) + '%' : '未知'}）：原价存在群体差异，且原价与到手价的中位相对差超过 10%，疑似「先区别定价、再用折扣掩饰」。</div>`
+    : '';
+  return `<div class="badge ${cls}">
+    <h2>${title}</h2>
+    <p>商品：${esc(r.product_name || r.product_id)}（${esc(r.product_id)}） · 样本：${r.sample_total} 条${pairText}</p>
+    <p>${sub}</p>
+    <ul>${reasons}</ul>
+  </div>${fakeSub}`;
+}
+
+// ---------- 渲染：步骤卡片 ----------
+function renderResult(r) {
+  let html = renderBadge(r);
+  const insufficient = r.reason_code.includes('INSUFFICIENT_DATA');
+
+  // ① 数据概览
+  const fbMatch = (r.price_basis || '').match(/(\d+)条回退actual_pay/);
+  html += `<div class="panel step">
+    <h3><span class="step-num">1</span>数据概览</h3>
+    <div class="step-sub">确认分析基于哪些数据</div>
+    ${r.user_a && r.user_b ? `<p>对比对（自动选取价差最大的两个匿名用户）：<br>
+      用户A（低价侧）<code>${esc(r.user_a.user_ref)}</code>（${r.user_a.n} 条） vs
+      用户B（高价侧）<code>${esc(r.user_b.user_ref)}</code>（${r.user_b.n} 条）
+      · 该商品共 <b>${r.user_count}</b> 个匿名用户</p>` : ''}
+    <p>有效样本 <b>${r.sample_total}</b> 条 · 价格基准：<span class="chip">原价（页面展示价）</span>
+    <span class="muted" style="font-size:12px">${esc(r.price_basis || '')}</span></p>
+    <p class="muted">原价是平台对不同群体的定价载体；到手价受个人优惠券影响噪声大，仅作兜底。
+    ${fbMatch ? `其中 ${fbMatch[1]} 条记录原价缺失，已回退到手价参与分析。` : '本次分析的记录均有原价，无回退。'}</p>
+    ${(r.notes || []).map(n => `<p class="muted">· ${esc(n)}</p>`).join('')}
+  </div>`;
+
+  // ② 描述性统计 + 分布图
+  if (r.groups && r.groups.length === 2) {
+    const [A, B] = r.groups;
+    html += `<div class="panel step">
+      <h3><span class="step-num">2</span>描述性统计对比</h3>
+      <div class="step-sub">先看两用户价格的基本面貌（分与元双单位）</div>
+      <table class="stat">
+        <tr><th>用户</th><th>样本量 n</th><th>均值</th><th>中位数</th><th>标准差</th><th>最小</th><th>最大</th></tr>
+        ${[A, B].map(g => `<tr>
+          <td><b>${esc(g.name)}</b><br><span class="muted" style="font-size:12px">${esc(g.key)}</span></td>
+          <td>${g.n}</td><td>${fenDual(g.mean_cents)}</td><td class="hl">${fenDual(g.median_cents)}</td>
+          <td>${fenDual(g.std_cents)}</td><td>${fen(g.min_cents)}</td><td>${fen(g.max_cents)}</td>
+        </tr>`).join('')}
+      </table>
+      <div class="step-sub" style="margin-top:14px">两用户价格分布对比（直方图叠加，看清分布是否错开）</div>
+      ${renderHistogram(A, B)}
+    </div>`;
+  }
+
+  if (insufficient) {
+    html += `<div class="panel step"><h3><span class="step-num">3</span>后续步骤已跳过</h3>
+      <p class="muted">样本量不足时，统计检验结果不可靠，Mann-Whitney U 检验与回归分析未执行。
+      请继续采集更多观测后重试。</p></div>`;
+    $('result').innerHTML = html;
+    return;
+  }
+
+  // ③ Mann-Whitney U（小样本降级：mann_whitney 为 null 时展示降级说明）
+  const mw = r.mann_whitney;
+  if (!mw) {
+    html += `<div class="panel step">
+      <h3><span class="step-num">3</span>Mann-Whitney U 检验</h3>
+      <div class="step-sub">已降级为纯描述性输出</div>
+      <p class="muted">${esc(r.mann_whitney_note || '样本量过小，检验未执行')}。p 值记为 null，
+      本步骤不产生显著性结论，最终判定由步骤 ④⑥ 给出。</p>
+    </div>`;
+  } else {
+    const pPct = (mw.p_value * 100).toFixed(mw.p_value < 0.01 ? 2 : 1);
+    html += `<div class="panel step">
+      <h3><span class="step-num">3</span>Mann-Whitney U 检验</h3>
+      <div class="step-sub">非参数检验：不假设价格服从正态分布，小样本也适用</div>
+      <table class="stat">
+        <tr><th>U 统计量</th><th>p 值</th><th>判定（α = 0.05）</th></tr>
+        <tr><td>${mw.u_stat}</td><td>${mw.p_value}</td>
+        <td>${mw.significant ? '<span class="bad-text">显著：两用户价格分布存在系统性差异</span>' : '<span class="ok-text">不显著</span>'}</td></tr>
+      </table>
+      <div class="explain">💡 通俗解释：p = ${mw.p_value} 表示——<b>如果两用户价格真的没有差异</b>，
+      仅凭随机抽样波动就出现当前这么大（或更大）差异的概率约为 ${pPct}%。
+      ${mw.significant ? '这个概率很小，所以我们有理由认为差异是真实存在的。' : '这个概率不够小，现有证据不足以认定存在差异。'}</div>
+      ${r.mann_whitney_note ? `<p class="muted">⚠ ${esc(r.mann_whitney_note)}</p>` : ''}
+    </div>`;
+  }
+
+  // ④ 中位数价差
+  const over5 = Math.abs(r.median_price_diff_percent) > 5;
+  html += `<div class="panel step">
+    <h3><span class="step-num">4</span>中位数价差</h3>
+    <div class="step-sub">价差幅度是否达到值得关注的程度（相对低价侧中位数，阈值 5%）</div>
+    <p style="font-size:16px"><b class="hl">${esc(r.diff_direction)}</b>
+    （中位数价差 ${r.median_price_diff_percent}%）</p>
+    <p class="muted">判定：${over5 ? '<span class="bad-text">超过 5% 阈值</span>' : '<span class="ok-text">未超过 5% 阈值</span>'}</p>
+  </div>`;
+
+  // ⑤ 回归分析
+  if (r.regression) {
+    const g = r.regression;
+    html += `<div class="panel step">
+      <h3><span class="step-num">5</span>OLS 回归（排除替代解释）</h3>
+      <div class="step-sub">控制城市、时段、设备等因素后，分组变量是否仍然显著 · log(价格) 为因变量 · ${esc(g.cov_type)} 稳健标准误</div>
+      <table class="stat">
+        <tr><th>核心变量</th><th>系数</th><th>标准误</th><th>t</th><th>p 值</th><th>95% 置信区间</th><th>换算影响</th></tr>
+        <tr><td>${esc(g.core_variable)}</td><td>${g.coef}</td><td>${g.std_err}</td><td>${g.t}</td>
+        <td class="${g.p_value < 0.05 ? 'bad-text' : 'ok-text'}">${g.p_value}</td>
+        <td>[${g.ci_95[0]}, ${g.ci_95[1]}]</td>
+        <td class="hl">约 ${g.approx_percent_effect}%</td></tr>
+      </table>
+      <p style="margin-top:8px">模型 R² = ${g.r_squared} · 回归样本 n = ${g.n}</p>
+      <p class="muted">纳入控制变量：${g.controls_used.map(esc).join('、') || '无'}</p>
+      ${g.controls_dropped.length ? `<p class="muted">自动剔除的控制变量（缺失率>60% 或无变异）：${g.controls_dropped.map(esc).join('、')}</p>` : ''}
+      <div class="explain">💡 换算影响 ${g.approx_percent_effect}% 表示：在控制了 ${g.controls_used.map(esc).join('、') || '无'} 之后，
+      ${esc(g.core_variable)} 对应的价格差异仍约为 ${g.approx_percent_effect}%，
+      即「价差其实是因为城市/时段不同」这一替代解释难以成立。置信区间${g.ci_95[0] * g.ci_95[1] > 0 ? '不含 0，结论稳健' : '包含 0，需谨慎'}。</div>
+    </div>`;
+  } else {
+    html += `<div class="panel step">
+      <h3><span class="step-num">5</span>OLS 回归</h3>
+      <div class="step-sub">不适用</div>
+      <p class="muted">${esc(r.regression_not_applicable_reason || '回归条件不满足')}。
+      按判定规则，回归不适用时不计入否决：若 MWU 显著仍可判为「疑似」；若 MWU 也不显著（或已降级）而价差 &gt;5%，则记为「疑似（低置信）」。</p>
+    </div>`;
+  }
+
+  // ⑥ 判定规则清单
+  const rc = r.reason_code || [];
+  const has = c => rc.includes(c);
+  const rules = [
+    { ok: has('PRICE_DIFF_OVER_5PCT'), text: `中位数价差 > 5%（实际 ${r.median_price_diff_percent}%，相对低价侧）` },
+    r.mann_whitney
+      ? { ok: has('MWU_SIGNIFICANT'), text: `Mann-Whitney U 检验显著（p=${r.mann_whitney.p_value}）` }
+      : { ok: null, text: 'MWU 检验降级（小样本），p 记 null，不显著仅因无法检验' },
+    r.regression
+      ? { ok: has('REGRESSION_SIGNIFICANT'), text: `回归核心变量显著（p=${r.regression.p_value}，是否高价侧用户B）` }
+      : { ok: null, text: '回归不适用（无其他解释的替代检验），不计入否决' },
+  ];
+  html += `<div class="panel step">
+    <h3><span class="step-num">6</span>判定规则清单</h3>
+    <div class="step-sub">全置信：价差超阈 且 检验显著（MWU 或回归）且 回归未给出替代解释；检验降级时允许「价差>5% + 无其他解释」的低置信疑似</div>
+    <ul class="rules">
+      ${rules.map(rule => `<li>
+        <span class="icon">${rule.ok === true ? '✅' : rule.ok === false ? '❌' : '➖'}</span>
+        <span>${esc(rule.text)}</span></li>`).join('')}
+    </ul>
+    <div class="conclusion ${r.flag ? 'warn' : r.low_confidence ? 'soft' : 'ok'}">
+      ${r.flag ? '⚠️ 结论：判定规则满足，该商品存在疑似价格差别待遇。建议优先固定该商品的截图与 DOM 证据。'
+               : r.low_confidence ? '🤔 结论：疑似（低置信）——价差超过 5%，但样本量过小导致统计检验降级，且无其他解释。建议扩大样本后复测以升级为全置信判定。'
+               : '结论：未同时满足判定规则，暂不能认定存在差别待遇。'}
+    </div>
+  </div>`;
+
+  $('result').innerHTML = html;
+}
+
+// ---------- 手写 SVG 直方图（两组叠加） ----------
+function renderHistogram(A, B) {
+  const W = 640, H = 220, PAD = { l: 46, r: 12, t: 26, b: 34 };
+  const all = [...A.prices_cents, ...B.prices_cents];
+  const lo = Math.min(...all), hi = Math.max(...all);
+  const span = Math.max(hi - lo, 1);
+  const BINS = 12;
+  const binW = span / BINS;
+  const cnt = (arr, i) => arr.filter(v => v >= lo + i * binW && (i === BINS - 1 ? v <= hi : v < lo + (i + 1) * binW)).length;
+  const binsA = Array.from({ length: BINS }, (_, i) => cnt(A.prices_cents, i));
+  const binsB = Array.from({ length: BINS }, (_, i) => cnt(B.prices_cents, i));
+  const maxC = Math.max(1, ...binsA, ...binsB);
+  const plotW = W - PAD.l - PAD.r, plotH = H - PAD.t - PAD.b;
+  const bw = plotW / BINS;
+
+  let bars = '';
+  for (let i = 0; i < BINS; i++) {
+    const x = PAD.l + i * bw;
+    const hA = binsA[i] / maxC * plotH, hB = binsB[i] / maxC * plotH;
+    bars += `<rect x="${x + 1}" y="${PAD.t + plotH - hA}" width="${bw - 2}" height="${hA}" fill="rgba(37,99,235,.55)"/>`;
+    bars += `<rect x="${x + 1}" y="${PAD.t + plotH - hB}" width="${bw - 2}" height="${hB}" fill="rgba(217,119,6,.55)"/>`;
+  }
+  // 中位数参考线
+  const mx = v => PAD.l + (v - lo) / span * plotW;
+  const medLines = `
+    <line x1="${mx(A.median_cents)}" y1="${PAD.t}" x2="${mx(A.median_cents)}" y2="${PAD.t + plotH}" stroke="#1d4ed8" stroke-width="2" stroke-dasharray="5 3"/>
+    <line x1="${mx(B.median_cents)}" y1="${PAD.t}" x2="${mx(B.median_cents)}" y2="${PAD.t + plotH}" stroke="#b45309" stroke-width="2" stroke-dasharray="5 3"/>`;
+  // X 轴刻度（5 个，元单位）
+  let ticks = '';
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + span * i / 4;
+    const x = mx(v);
+    ticks += `<line x1="${x}" y1="${PAD.t + plotH}" x2="${x}" y2="${PAD.t + plotH + 4}" stroke="#9ca3af"/>
+      <text x="${x}" y="${PAD.t + plotH + 18}" font-size="11" fill="#6b7280" text-anchor="middle">${(v / 100).toFixed(2)}</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px">
+    <rect x="${PAD.l}" y="${PAD.t}" width="${plotW}" height="${plotH}" fill="#fafbfc" stroke="#e3e8f0"/>
+    ${bars}${medLines}${ticks}
+    <text x="${PAD.l}" y="16" font-size="12" fill="#1d4ed8">■ ${esc(A.name)}（虚线=中位数 ${fen(A.median_cents)}）</text>
+    <text x="${W / 2}" y="16" font-size="12" fill="#b45309">■ ${esc(B.name)}（虚线=中位数 ${fen(B.median_cents)}）</text>
+    <text x="${PAD.l + plotW / 2}" y="${H - 4}" font-size="11" fill="#6b7280" text-anchor="middle">价格（元）</text>
+  </svg>`;
+}
+
+// ---------- 平台级复现检验 ----------
+async function runPlatformAnalysis() {
+  $('loading').style.display = 'block';
+  $('platformResult').innerHTML = '';
+  try {
+    const r = await api('/api/analysis/platform');
+    const sus = r.platform_suspected;
+    let html = `<div class="panel platform-result">
+      <h3>🌐 平台级复现检验（最大价差用户对）</h3>
+      <div class="step-sub">每个商品自动选取价差最大的匿名用户对；同一模式在 ≥2 个商品上复现，才更像系统性差别待遇</div>
+      <div class="conclusion ${sus ? 'warn' : 'ok'}" style="margin:10px 0">
+        ${sus ? `⚠️ ${r.flagged_products} 个商品复现了同样的价差模式（${(r.reason_code || []).map(esc).join('、')}），平台层面疑似存在系统性差别待遇。`
+               : `共分析 ${r.products.length} 个商品，其中 ${r.flagged_products} 个判定为疑似差别待遇，未达到跨商品复现标准（≥2）。`}
+        ${r.low_confidence_products ? `<br>另有 ${r.low_confidence_products} 个商品为「疑似（低置信）」（${(r.low_confidence_product_ids || []).map(esc).join('、')}），不计入复现，建议扩大样本复测。` : ''}
+      </div>
+      <table>
+        <tr><th>商品</th><th>对比用户对</th><th>样本</th><th>价差</th><th>MWU p 值</th><th>判定</th></tr>
+        ${r.products.map(p => `<tr>
+          <td>${esc(p.product_name || p.product_id)}<br><span class="muted" style="font-size:12px">${esc(p.product_id)}</span></td>
+          <td style="font-size:12px">${p.user_a && p.user_b
+            ? `${esc(p.user_a.user_ref_short)}… <span class="muted">(${p.user_a.n})</span> vs ${esc(p.user_b.user_ref_short)}… <span class="muted">(${p.user_b.n})</span>`
+            : '<span class="muted">—</span>'}</td>
+          <td>${p.sample_total ?? '—'}</td>
+          <td>${p.median_price_diff_percent != null ? p.median_price_diff_percent + '%' : '—'}</td>
+          <td>${p.mann_whitney && p.mann_whitney.p_value != null ? p.mann_whitney.p_value : '<span class="muted">降级</span>'}</td>
+          <td>${p.flag ? '<span class="chip" style="background:#fef3c7;color:#92400e">⚠️ 疑似</span>'
+                        : p.low_confidence ? '<span class="chip" style="background:#ffedd5;color:#9a3412">🤔 低置信</span>'
+                        : p.reason_code && p.reason_code.includes('INSUFFICIENT_DATA') ? '<span class="muted">数据不足</span>'
+                        : '<span class="ok-text">未发现</span>'}</td>
+        </tr>`).join('')}
+      </table>
+    </div>`;
+    $('platformResult').innerHTML = html;
+    $('platformResult').scrollIntoView({ behavior: 'smooth' });
+  } catch (e) { /* 已提示 */ }
+  $('loading').style.display = 'none';
+}
+
+loadProducts();
+</script>
+</body>
+</html>

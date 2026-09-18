@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的看板 · 算法歧视众包观测</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: #f1f5f9; min-height: 100vh; color: #1e293b;
+  }
+  .topbar {
+    background: #0f172a; color: #fff; padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+  .topbar .brand { font-weight: 700; font-size: 16px; }
+  .topbar .uid { font-size: 12px; color: #94a3b8; font-family: ui-monospace, monospace; }
+  .topbar a { color: #a5b4fc; text-decoration: none; font-size: 13px; margin-left: 14px; }
+  .topbar a:hover { color: #c7d2fe; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 28px 20px 60px; }
+  h2 { font-size: 20px; color: #0f172a; margin: 28px 0 14px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  .card {
+    background: #fff; border-radius: 14px; border: 1px solid #e2e8f0;
+    padding: 20px; box-shadow: 0 2px 10px rgba(15,23,42,.04);
+  }
+  .card .num { font-size: 32px; font-weight: 800; color: #4f46e5; }
+  .card .label { font-size: 13px; color: #64748b; margin-top: 4px; }
+  .panel { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; padding: 22px; box-shadow: 0 2px 10px rgba(15,23,42,.04); }
+  .chart { display: flex; align-items: flex-end; gap: 10px; height: 140px; padding-top: 10px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+  .bar {
+    width: 100%; max-width: 46px; background: linear-gradient(180deg, #818cf8, #4f46e5);
+    border-radius: 6px 6px 0 0; min-height: 3px; transition: height .4s;
+  }
+  .bar-val { font-size: 12px; font-weight: 700; color: #4338ca; }
+  .bar-day { font-size: 11px; color: #94a3b8; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
+  th { color: #64748b; font-weight: 600; font-size: 12.5px; background: #f8fafc; }
+  tr:hover td { background: #f8fafc; }
+  .plat { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .taobao { background: #fff7ed; color: #c2410c; }
+  .tmall { background: #fef2f2; color: #b91c1c; }
+  .jd { background: #fff1f2; color: #e11d48; }
+  .pinduoduo { background: #fdf2f8; color: #be185d; }
+  .empty {
+    text-align: center; padding: 48px 20px; color: #64748b;
+  }
+  .empty .big { font-size: 42px; margin-bottom: 12px; }
+  .btn {
+    display: inline-block; text-decoration: none; cursor: pointer; border: none;
+    border-radius: 10px; padding: 11px 22px; font-size: 14.5px; font-weight: 600;
+    background: #4f46e5; color: #fff;
+  }
+  .btn:hover { background: #4338ca; }
+  .btn.plain { background: #fff; color: #334155; border: 1.5px solid #cbd5e1; margin-left: 10px; }
+  .notice { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 10px; padding: 10px 14px; font-size: 12.5px; margin-top: 14px; line-height: 1.7; }
+  .pager { display: flex; align-items: center; gap: 12px; justify-content: flex-end; margin-top: 14px; font-size: 13px; color: #64748b; }
+  .pager button {
+    border: 1.5px solid #cbd5e1; background: #fff; border-radius: 8px;
+    padding: 6px 14px; cursor: pointer; font-size: 13px; color: #334155;
+  }
+  .pager button:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div>
+    <div class="brand">📊 我的看板</div>
+    <div class="uid" id="uidText">匿名身份初始化中…</div>
+  </div>
+  <div>
+    <a href="/">← 返回门户</a>
+    <a href="/download">下载插件</a>
+    <a href="#" id="logoutBtn">退出身份</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="main">
+    <h2>贡献统计</h2>
+    <div class="cards" id="statCards">
+      <div class="card"><div class="num" id="totalObs">–</div><div class="label">我的观测总数</div></div>
+      <div class="card"><div class="num" id="platCount">–</div><div class="label">覆盖平台数</div></div>
+      <div class="card"><div class="num" id="weekObs">–</div><div class="label">近 7 天观测</div></div>
+    </div>
+
+    <h2>近 7 天趋势</h2>
+    <div class="panel"><div class="chart" id="chart"></div></div>
+
+    <h2>我的观测记录</h2>
+    <div class="panel">
+      <table>
+        <thead>
+          <tr><th>平台</th><th>商品</th><th>展示价</th><th>到手价</th><th>采集时间</th></tr>
+        </thead>
+        <tbody id="obsBody"><tr><td colspan="5" style="text-align:center;color:#94a3b8">加载中…</td></tr></tbody>
+      </table>
+      <div class="pager">
+        <button id="prevBtn">上一页</button>
+        <span id="pageText">第 1 页</span>
+        <button id="nextBtn">下一页</button>
+      </div>
+    </div>
+    <div class="notice">💡 数据由你浏览器中的插件自动上报。看板中的身份编号仅保存在本机浏览器，清除站点数据后需重新生成。</div>
+  </div>
+
+  <div id="emptyState" class="panel empty" style="display:none">
+    <div class="big">🧭</div>
+    <p style="font-size:16px;font-weight:600;color:#334155;margin-bottom:8px">还没有观测记录</p>
+    <p style="margin-bottom:20px">安装插件后浏览淘宝 / 天猫 / 京东 / 拼多多的商品页，即可自动采集价格数据。</p>
+    <a class="btn" href="/download">去下载插件</a>
+    <a class="btn plain" href="/">返回门户</a>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- 一键登录：本地匿名身份（UUID），POST /api/my/login 建档 ---------- */
+  var KEY = 'obs_user_id';
+  var uid = localStorage.getItem(KEY);
+  if (!uid) {
+    uid = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2));
+    localStorage.setItem(KEY, uid);
+  }
+  document.getElementById('uidText').textContent = '匿名身份：' + uid.slice(0, 8) + '…（仅本机保存）';
+
+  document.getElementById('logoutBtn').addEventListener('click', function (e) {
+    e.preventDefault();
+    if (confirm('退出后将清除本机匿名身份，之后进入看板会生成新身份，确定退出？')) {
+      localStorage.removeItem(KEY);
+      location.reload();
+    }
+  });
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ 'X-User-Id': uid }, opts.headers || {});
+    return fetch(path, opts).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+
+  /* ---------- 统计卡片 + 7 天图 ---------- */
+  api('/api/my/stats').then(function (s) {
+    document.getElementById('totalObs').textContent = s.total;
+    document.getElementById('platCount').textContent = s.by_platform.length;
+    var week = s.last_7_days.reduce(function (a, d) { return a + d.count; }, 0);
+    document.getElementById('weekObs').textContent = week;
+
+    var chart = document.getElementById('chart');
+    chart.innerHTML = '';
+    var max = Math.max.apply(null, s.last_7_days.map(function (d) { return d.count; }).concat([1]));
+    s.last_7_days.forEach(function (d) {
+      var col = document.createElement('div');
+      col.className = 'bar-col';
+      var h = Math.round((d.count / max) * 100);
+      col.innerHTML =
+        '<div class="bar-val">' + d.count + '</div>' +
+        '<div class="bar" style="height:' + (d.count ? Math.max(h, 4) : 3) + '%"></div>' +
+        '<div class="bar-day">' + d.day.slice(5) + '</div>';
+      chart.appendChild(col);
+    });
+  }).catch(function (e) {
+    document.getElementById('statCards').innerHTML =
+      '<div class="notice" style="grid-column:1/-1">统计加载失败：' + e.message + '（服务可能正在冷启动，请刷新重试）</div>';
+  });
+
+  /* ---------- 观测记录分页 ---------- */
+  var page = 1, pageSize = 20, total = 0;
+  var PLAT = { taobao: '淘宝', tmall: '天猫', jd: '京东', pinduoduo: '拼多多', yangkeduo: '拼多多' };
+
+  function fmtCents(c) { return c == null ? '—' : '¥' + (c / 100).toFixed(2); }
+  function fmtTime(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? iso : d.toLocaleString('zh-CN', { hour12: false });
+  }
+
+  function loadPage() {
+    api('/api/my/observations?page=' + page + '&page_size=' + pageSize).then(function (r) {
+      total = r.total;
+      var body = document.getElementById('obsBody');
+      document.getElementById('pageText').textContent = '第 ' + page + ' 页 · 共 ' + total + ' 条';
+      document.getElementById('prevBtn').disabled = page <= 1;
+      document.getElementById('nextBtn').disabled = page * pageSize >= total;
+
+      if (!r.items.length) {
+        body.innerHTML = '';
+        document.getElementById('main').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'block';
+        return;
+      }
+      body.innerHTML = r.items.map(function (o) {
+        var p = PLAT[o.platform_code] || o.platform_code;
+        var name = o.product_name ? String(o.product_name).slice(0, 24) : o.product_id;
+        return '<tr>' +
+          '<td><span class="plat ' + o.platform_code + '">' + p + '</span></td>' +
+          '<td title="' + (o.product_url || '') + '">' + name + '</td>' +
+          '<td>' + fmtCents(o.display_price_cents) + '</td>' +
+          '<td>' + fmtCents(o.actual_pay_price_cents) + '</td>' +
+          '<td>' + fmtTime(o.fetch_ts || o.created_at) + '</td>' +
+          '</tr>';
+      }).join('');
+    }).catch(function (e) {
+      document.getElementById('obsBody').innerHTML =
+        '<tr><td colspan="5" style="text-align:center;color:#ef4444">加载失败：' + e.message + '</td></tr>';
+    });
+  }
+  document.getElementById('prevBtn').addEventListener('click', function () { if (page > 1) { page--; loadPage(); } });
+  document.getElementById('nextBtn').addEventListener('click', function () { page++; loadPage(); });
+  loadPage();
+
+  /* 首次进入自动完成一键登录建档（失败不阻塞看板） */
+  api('/api/my/login', { method: 'POST' }).catch(function () {});
+})();
+</script>
+</body>
+</html>

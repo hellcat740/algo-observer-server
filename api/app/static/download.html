@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>下载插件 · 算法歧视众包观测</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: #f1f5f9; min-height: 100vh; color: #1e293b;
+  }
+  .topbar {
+    background: #0f172a; color: #fff; padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .topbar .brand { font-weight: 700; font-size: 16px; }
+  .topbar a { color: #a5b4fc; text-decoration: none; font-size: 13px; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 24px; color: #0f172a; margin-bottom: 6px; }
+  .lead { color: #64748b; font-size: 14px; margin-bottom: 26px; }
+  .dl {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; border-radius: 16px;
+    padding: 28px; display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 18px; margin-bottom: 28px;
+  }
+  .dl .info h2 { font-size: 18px; margin-bottom: 6px; }
+  .dl .info p { font-size: 13px; color: #ddd6fe; }
+  .dl a {
+    background: #fff; color: #4f46e5; text-decoration: none; font-weight: 700;
+    padding: 13px 28px; border-radius: 12px; font-size: 15.5px;
+  }
+  .dl a:hover { background: #eef2ff; }
+  .panel { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; padding: 26px; margin-bottom: 20px; }
+  .panel h2 { font-size: 17px; color: #0f172a; margin-bottom: 16px; }
+  ol.steps { margin-left: 20px; font-size: 14px; line-height: 2.1; color: #334155; }
+  ol.steps b { color: #0f172a; }
+  ol.steps code {
+    background: #f1f5f9; padding: 2px 8px; border-radius: 6px;
+    font-family: ui-monospace, monospace; font-size: 13px; color: #4338ca;
+  }
+  .plat-tabs { display: flex; gap: 10px; margin-bottom: 18px; }
+  .plat-tabs button {
+    border: 1.5px solid #cbd5e1; background: #fff; border-radius: 999px;
+    padding: 8px 20px; font-size: 14px; cursor: pointer; color: #334155; font-weight: 600;
+  }
+  .plat-tabs button.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+  .note { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; border-radius: 10px; padding: 12px 16px; font-size: 13px; line-height: 1.8; margin-top: 16px; }
+  .faq { font-size: 13.5px; line-height: 1.9; color: #475569; }
+  .faq b { color: #0f172a; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">🧩 插件下载</div>
+  <a href="/">← 返回门户</a>
+</div>
+
+<div class="wrap">
+  <h1>浏览器扩展 · Edge / Chrome</h1>
+  <p class="lead">下载后为 zip 压缩包（解压加载版，未上架商店）。安装约需 1 分钟。</p>
+
+  <div class="dl">
+    <div class="info">
+      <h2>算法歧视观测插件</h2>
+      <p id="verText">版本 v0.4.0 · 适用于 Microsoft Edge 与 Google Chrome</p>
+    </div>
+    <a href="/download/plugin.zip" download>⬇️ 下载插件 zip</a>
+  </div>
+
+  <div class="panel">
+    <h2>安装步骤</h2>
+    <div class="plat-tabs">
+      <button class="active" data-tab="edge">Microsoft Edge</button>
+      <button data-tab="chrome">Google Chrome</button>
+    </div>
+    <div id="tab-edge">
+      <ol class="steps">
+        <li>下载 zip 后，<b>解压</b>到一个固定文件夹（例如 <code>D:\algo-observer-plugin</code>，之后不要移动或删除）。</li>
+        <li>打开 Edge，地址栏输入 <code>edge://extensions</code> 回车。</li>
+        <li>打开左下角 <b>「开发人员模式」</b> 开关。</li>
+        <li>点击新出现的 <b>「加载解压缩的扩展」</b> 按钮，选中刚才解压的文件夹。</li>
+        <li>安装完成。打开任意 <b>淘宝 / 天猫 / 京东 / 拼多多</b> 商品页，点击右上角插件图标即可开始采集。</li>
+      </ol>
+    </div>
+    <div id="tab-chrome" style="display:none">
+      <ol class="steps">
+        <li>下载 zip 后，<b>解压</b>到一个固定文件夹（之后不要移动或删除）。</li>
+        <li>打开 Chrome，地址栏输入 <code>chrome://extensions</code> 回车。</li>
+        <li>打开右上角 <b>「开发者模式」</b> 开关。</li>
+        <li>点击 <b>「加载已解压的扩展程序」</b>，选中刚才解压的文件夹。</li>
+        <li>安装完成。打开任意 <b>淘宝 / 天猫 / 京东 / 拼多多</b> 商品页，点击右上角插件图标即可开始采集。</li>
+      </ol>
+    </div>
+    <div class="note">
+      ℹ️ 首次采集前请在插件弹窗中阅读并同意《采集知情同意》；插件默认上报到本项目公网服务器，
+      服务器地址与上报密钥已内置，<b>无需任何配置</b>。你也可以随时在插件「设置」页查看或修改上报地址。
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>常见问题</h2>
+    <div class="faq">
+      <p><b>Q：提示「无法加载扩展」？</b><br>A：确认选中的是<b>解压后的文件夹</b>（里面直接包含 manifest.json），而不是 zip 或外层目录。</p>
+      <p style="margin-top:10px"><b>Q：装好后怎么知道自己的数据有没有上报成功？</b><br>A：点击插件图标查看最近采集结果；或在门户首页进入「我的看板」查看记录与统计。</p>
+      <p style="margin-top:10px"><b>Q：会收集我的个人信息吗？</b><br>A：不会。仅采集页面公开价格与优惠信息，昵称打码后才入库，身份为随机匿名编号。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var tabs = document.querySelectorAll('.plat-tabs button');
+  tabs.forEach(function (b) {
+    b.addEventListener('click', function () {
+      tabs.forEach(function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      document.getElementById('tab-edge').style.display = b.dataset.tab === 'edge' ? 'block' : 'none';
+      document.getElementById('tab-chrome').style.display = b.dataset.tab === 'chrome' ? 'block' : 'none';
+    });
+  });
+})();
+</script>
+</body>
+</html>
