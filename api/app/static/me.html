@@ -74,7 +74,21 @@
   <div>
     <a href="/">← 返回门户</a>
     <a href="/download">下载插件</a>
+    <a href="#" id="idManageBtn">身份管理</a>
     <a href="#" id="logoutBtn">退出身份</a>
+  </div>
+</div>
+
+<div class="wrap" style="padding-top:14px">
+  <div class="panel" id="idPanel" style="display:none;font-size:12.5px;color:#475569;line-height:1.9">
+    完整身份 ID：<code id="uidFull" style="background:#f1f5f9;padding:2px 8px;border-radius:6px;user-select:all"></code>
+    <a href="#" id="copyUid" style="color:#4f46e5;margin-left:8px">复制</a>
+    <div style="margin-top:6px">插件数据对不上？点插件弹窗里的「🧾 打开我的看板」会自动对齐身份；或把插件里复制的完整 ID 粘贴到下面手动对齐：</div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <input id="importUid" placeholder="粘贴插件的匿名身份 ID（UUID）" style="flex:1;border:1.5px solid #cbd5e1;border-radius:8px;padding:6px 10px;font-size:12.5px" />
+      <button id="importBtn" class="btn" style="width:auto;padding:6px 16px;font-size:12.5px">导入身份</button>
+    </div>
+    <div id="importMsg" style="margin-top:4px"></div>
   </div>
 </div>
 
@@ -123,11 +137,54 @@
   /* ---------- 一键登录：本地匿名身份（UUID），POST /api/my/login 建档 ---------- */
   var KEY = 'obs_user_id';
   var uid = localStorage.getItem(KEY);
+
+  /* 插件弹窗「🧾 打开我的看板」会以 #<UUID> 打开本页：采纳该身份并清掉地址栏 hash，
+     实现插件 ⇄ 看板身份对齐（修复「插件已上报但看板无记录」的身份不一致问题）。 */
+  var UUID_RE = /[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}/;
+  var hashMatch = location.hash.match(UUID_RE);
+  if (hashMatch) {
+    uid = hashMatch[0].toLowerCase();
+    localStorage.setItem(KEY, uid);
+    if (history.replaceState) history.replaceState(null, '', location.pathname);
+  }
+
   if (!uid) {
     uid = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2));
     localStorage.setItem(KEY, uid);
   }
   document.getElementById('uidText').textContent = '匿名身份：' + uid.slice(0, 8) + '…（仅本机保存）';
+
+  /* ---------- 身份管理：查看/复制完整 ID，粘贴插件 ID 手动对齐 ---------- */
+  document.getElementById('uidFull').textContent = uid;
+  document.getElementById('idManageBtn').addEventListener('click', function (e) {
+    e.preventDefault();
+    var p = document.getElementById('idPanel');
+    p.style.display = (p.style.display === 'none' || !p.style.display) ? 'block' : 'none';
+  });
+  document.getElementById('copyUid').addEventListener('click', function (e) {
+    e.preventDefault();
+    var link = this;
+    function done() { link.textContent = '已复制 ✓'; setTimeout(function () { link.textContent = '复制'; }, 1500); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(uid).then(done, function () { window.prompt('手动复制：', uid); });
+    } else {
+      window.prompt('手动复制：', uid);
+    }
+  });
+  document.getElementById('importBtn').addEventListener('click', function () {
+    var v = document.getElementById('importUid').value.trim();
+    var m = v.match(UUID_RE);
+    var msg = document.getElementById('importMsg');
+    if (!m) {
+      msg.style.color = '#dc2626';
+      msg.textContent = '格式不对：请粘贴完整的 UUID（形如 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx）';
+      return;
+    }
+    localStorage.setItem(KEY, m[0].toLowerCase());
+    msg.style.color = '#16a34a';
+    msg.textContent = '已导入身份，正在刷新看板…';
+    setTimeout(function () { location.reload(); }, 600);
+  });
 
   document.getElementById('logoutBtn').addEventListener('click', function (e) {
     e.preventDefault();
