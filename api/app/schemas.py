@@ -142,3 +142,14 @@ class StatsSummary(BaseModel):
     total: int
     by_platform: list[PlatformCount]
     last_7_days: list[DayCount]
+
+
+class AdminUserOut(BaseModel):
+    """管理员视角的匿名用户列表项（GET /api/admin/users）。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    anonymous_id: str
+    first_seen_at: datetime
+    last_seen_at: datetime
+    observation_count: int

@@ -14,6 +14,7 @@
 服务器」的落地实现。未配置 SYNC_SERVER_URL 时完全静默，不影响本地使用。
 """
 import logging
+import os
 import threading
 from typing import Optional
 
@@ -101,6 +102,8 @@ def start_auto_sync() -> bool:
     global _auto_sync_started
     if _auto_sync_started:
         return False
+    if os.environ.get("VERCEL"):
+        return False  # Vercel 平台自动注入 VERCEL=1：公网服务器不上行到自己，防自我同步回环
     from . import pool_client
 
     if not pool_client.server_url_from_env():

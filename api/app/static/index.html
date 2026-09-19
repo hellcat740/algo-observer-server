@@ -282,6 +282,12 @@
           <h3>最近 7 天采集趋势（UTC）</h3>
           <div id="ov-trend" style="display:flex;align-items:flex-end;gap:6px;height:56px"></div>
         </div>
+        <div class="card">
+          <h3>服务器同步</h3>
+          <div class="big" id="ov-syncPending">—</div>
+          <div class="muted" style="font-size:12px;margin-top:4px" id="ov-syncDetail">加载中…</div>
+          <button class="btn small" id="ov-syncPushBtn" onclick="ovSyncPush()" style="margin-top:8px;display:none">立即上行</button>
+        </div>
       </div>
 
       <div class="panel">
@@ -340,6 +346,7 @@
       <div class="panel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <b style="font-size:13px">✍️ 数据管理</b>
         <button class="btn" onclick="obsAddOpen()">＋ 新增记录</button>
+        <button class="btn ghost" onclick="usersOpen()">👥 用户管理</button>
         <span class="muted" style="font-size:12px">管理员手动补录单条观测（走清洗管线，与插件上报同口径入库）</span>
         <span id="obs-addResult" class="muted" style="font-size:12px"></span>
       </div>
@@ -378,7 +385,7 @@
           <thead>
             <tr>
               <th>采集时间(UTC)</th><th>平台</th><th>商品名</th><th>商品ID</th>
-              <th>标价(元)</th><th>到手价(元)</th><th>城市</th><th>登录态</th><th>新用户</th><th>操作</th>
+              <th>标价(元)</th><th>到手价(元)</th><th>城市</th><th>登录态</th><th>新用户</th><th>用户</th><th>来源</th><th>操作</th>
             </tr>
           </thead>
           <tbody id="obs-tbody"></tbody>
@@ -402,6 +409,16 @@
         <span class="muted" style="font-size:12px">自动选取该商品下「价差最大的匿名用户对」进行对比（用户A=低价侧，用户B=高价侧），小样本自动降级为描述性输出</span>
         <button class="btn" onclick="anRun()">开始分析</button>
         <button class="btn ghost" onclick="anRunPlatform()">平台级复现检验</button>
+      </div>
+      <!-- 拉取服务器数据比对：勾选后「开始分析」改走 /api/local/analysis/pull -->
+      <div class="panel" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:13px">
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer">
+          <input type="checkbox" id="an-pull" onchange="anPullToggle()"> 分析时拉取服务器同商品数据合并比对
+        </label>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer">
+          <input type="checkbox" id="an-keep" disabled> 保留拉取数据到本地（keep）
+        </label>
+        <span class="muted" style="font-size:12px">勾选后点「开始分析」会先从公网服务器拉取同商品全池数据与本机合并分析；不勾选保留时，拉取数据分析完即删除</span>
       </div>
       <div id="an-empty" class="panel empty" style="display:none">
         暂无可分析商品（需要同一商品 ≥2 个不同匿名用户的观测）<br>
@@ -558,8 +575,22 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<!-- 用户管理抽屉：匿名用户列表 + 删除该用户全部数据（/api/admin/users，需管理员密钥） -->
+<div class="drawer-mask" id="users-mask" onclick="usersClose()"></div>
+<div class="drawer" id="users-drawer">
+  <div class="drawer-head">
+    <h2>👥 用户管理（匿名用户）</h2>
+    <button class="x" onclick="usersClose()">×</button>
+  </div>
+  <div class="drawer-body">
+    <p class="muted" style="font-size:12px;margin-bottom:12px">
+      插件上报时自动建档的匿名用户（随机 UUID，不含账号信息）。「删除数据」会删除该用户的全部观测记录并移除建档，不可恢复。
+    </p>
+    <div id="users-body"><div class="loading">加载中…</div></div>
+  </div>
+</div>
 
+<div class="toast" id="toast"></div>
 <script>
 /* =====================================================================
  * 共享状态与工具
@@ -582,8 +613,8 @@ const REASON_CN = {
   FAKE_DISCOUNT_PATTERN: '⚠ FAKE_DISCOUNT_PATTERN：假折扣型歧视——原价存在群体差异且折扣深度超 10%',
 };
 const OBS_LABELS = {
-  observation_id: '观测 ID', task_id: '任务 ID', platform_code: '平台',
-  source_type: '来源类型', product_id: '商品 ID', product_name: '商品名',
+  observation_id: '观测 ID', task_id: '任务 ID', user_ref: '匿名用户', platform_code: '平台',
+  source_type: '来源类型', origin: '数据来源', product_id: '商品 ID', product_name: '商品名',
   seller_id: '卖家 ID', product_url: '商品链接',
   display_price_cents: '标价', actual_pay_price_cents: '到手价',
   currency: '币种', discount_coupon_amount_cents: '优惠券金额',
@@ -801,6 +832,53 @@ async function ovLoad() {
       $('ov-latest-rel').textContent = '等待插件上报第一条数据';
     }
   } catch (e) { /* 已提示 */ }
+  // 服务器同步状态卡片（未配置 SYNC_SERVER_URL 时显示灰色提示，不影响其他卡片）
+  ovSyncLoad();
+}
+
+/** 同步状态卡片：GET /api/local/sync/status → 待同步/已同步数量 */
+async function ovSyncLoad() {
+  const pend = $('ov-syncPending'), detail = $('ov-syncDetail'), btn = $('ov-syncPushBtn');
+  try {
+    const resp = await fetch('/api/local/sync/status', { headers: { 'X-API-Key': apiKey } });
+    if (!resp.ok) throw new Error('http ' + resp.status);
+    const s = await resp.json();
+    if (!s.server_url) {
+      pend.textContent = '—';
+      detail.innerHTML = '<span class="chip gray">未配置同步服务器</span>';
+      btn.style.display = 'none';
+      return;
+    }
+    pend.textContent = s.pending;
+    detail.textContent = `待同步 ${s.pending} 条 · 已同步 ${s.synced} 条 · 留存拉取 ${s.pulled_kept} 条`;
+    btn.style.display = '';
+  } catch (e) {
+    pend.textContent = '—';
+    detail.innerHTML = '<span class="chip gray">未配置同步服务器</span>';
+    btn.style.display = 'none';
+  }
+}
+
+/** 立即上行：POST /api/local/sync/push 后刷新同步状态卡片 */
+async function ovSyncPush() {
+  const btn = $('ov-syncPushBtn');
+  btn.disabled = true; btn.textContent = '上行中…';
+  try {
+    const resp = await fetch('/api/local/sync/push', {
+      method: 'POST', headers: { 'X-API-Key': apiKey },
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const detail = typeof data.detail === 'string' ? data.detail : '';
+      toast('上行失败：' + (detail || 'HTTP ' + resp.status + '（可能未配置 SYNC_SERVER_URL）'));
+    } else {
+      toast(`上行完成：新增 ${data.pushed} 条 / 幂等跳过 ${data.skipped} 条`);
+    }
+  } catch (e) {
+    toast('上行失败：网络错误（服务器不可达）');
+  }
+  btn.disabled = false; btn.textContent = '立即上行';
+  ovSyncLoad();
 }
 
 function ovRenderProducts() {
@@ -1021,6 +1099,14 @@ async function obsLoad() {
           <td>${esc(o.ip_city || '—')}</td>
           <td>${boolChip(o.is_login)}</td>
           <td>${boolChip(o.is_new_user)}</td>
+          <td>${o.user_ref
+            ? `<span class="muted" title="${esc(o.user_ref)}">${esc(o.user_ref.slice(0, 8))}…</span>`
+            : '<span class="muted">—</span>'}</td>
+          <td>${o.origin === 'pulled'
+            ? '<span class="chip">服务器拉取</span>'
+            : o.origin === 'local'
+              ? '<span class="chip gray">本机</span>'
+              : '<span class="muted">—</span>'}</td>
           <td onclick="event.stopPropagation()">
             <button class="btn small danger" onclick="obsDelete('${o.observation_id}')">删除</button>
           </td>
@@ -1046,6 +1132,7 @@ async function obsShowDetail(id) {
     $('obs-detailKv').innerHTML = Object.keys(OBS_LABELS).map(k => {
       let v = o[k];
       if (PRICE_FIELDS.includes(k) && v != null) v = fen(v) + `（${v} 分）`;
+      if (k === 'origin' && v != null) v = v === 'local' ? '本机（local）' : v === 'pulled' ? '服务器拉取（pulled）' : v;
       if (v == null) v = '<span class="muted">—</span>';
       else if (typeof v === 'boolean') v = v ? '是' : '否';
       else v = esc(String(v));
@@ -1088,6 +1175,85 @@ async function obsDelete(id) {
   }
 }
 
+/* ---- 用户管理（/api/admin/users，需管理员密钥） ---- */
+
+function usersOpen() {
+  if (!apiKey) { toast('请先填写 API Key'); return; }
+  $('users-drawer').classList.add('open');
+  $('users-mask').classList.add('open');
+  usersLoad();
+}
+
+function usersClose() {
+  $('users-drawer').classList.remove('open');
+  $('users-mask').classList.remove('open');
+}
+
+/** 加载匿名用户列表：GET /api/admin/users → [{anonymous_id, first_seen_at, last_seen_at, observation_count}] */
+async function usersLoad() {
+  const body = $('users-body');
+  body.innerHTML = '<div class="loading">加载中…</div>';
+  let resp;
+  try {
+    resp = await fetch('/api/admin/users', { headers: { 'X-API-Key': apiKey } });
+  } catch (e) {
+    body.innerHTML = '<div class="empty">加载失败：网络错误</div>';
+    return;
+  }
+  if (resp.status === 401 || resp.status === 403) {
+    $('apiKeyInput').classList.add('error');
+    $('keyWarn').style.display = 'block';
+    body.innerHTML = '<div class="empty">需管理员密钥：请在页面右上角输入管理员 API Key 后重试</div>';
+    return;
+  }
+  const data = await resp.json().catch(() => null);
+  if (!resp.ok || data == null) {
+    body.innerHTML = `<div class="empty">加载失败：${esc((data && typeof data.detail === 'string' && data.detail) || 'HTTP ' + resp.status)}</div>`;
+    return;
+  }
+  const users = Array.isArray(data) ? data : (data.users || []);
+  if (!users.length) {
+    body.innerHTML = '<div class="empty">暂无匿名用户<br>插件上报第一条观测后会自动建档</div>';
+    return;
+  }
+  body.innerHTML = `<table class="list">
+    <thead><tr><th>匿名 ID</th><th>观测数</th><th>首次活跃(UTC)</th><th>最近活跃(UTC)</th><th>操作</th></tr></thead>
+    <tbody>${users.map(u => `<tr>
+      <td><span class="muted" title="${esc(u.anonymous_id)}">${esc(String(u.anonymous_id).slice(0, 8))}…</span></td>
+      <td>${u.observation_count}</td>
+      <td>${u.first_seen_at ? fmtTs(u.first_seen_at) : '—'}</td>
+      <td>${u.last_seen_at ? fmtTs(u.last_seen_at) : '—'}</td>
+      <td><button class="btn small danger" onclick="usersDelete('${esc(u.anonymous_id)}')">删除数据</button></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+/** 删除某匿名用户的全部数据：二次确认 → DELETE → 刷新用户列表与观测表格 */
+async function usersDelete(uid) {
+  if (!confirm(`确定删除该匿名用户的全部数据？\n\n匿名 ID：${uid}\n\n将删除其全部观测记录并移除建档，此操作不可恢复。`)) return;
+  try {
+    const resp = await fetch('/api/admin/users/' + encodeURIComponent(uid), {
+      method: 'DELETE', headers: { 'X-API-Key': apiKey },
+    });
+    if (resp.status === 401 || resp.status === 403) {
+      $('apiKeyInput').classList.add('error');
+      $('keyWarn').style.display = 'block';
+      toast('需管理员密钥才能删除用户数据');
+      return;
+    }
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      toast('删除失败：' + ((typeof data.detail === 'string' && data.detail) || 'HTTP ' + resp.status));
+      return;
+    }
+    toast(`已删除 ${data.deleted_observations} 条观测`);
+    usersLoad();
+    obsLoad();
+  } catch (e) {
+    toast('删除失败：网络错误');
+  }
+}
+
 /* =====================================================================
  * 视图③：歧视分析（移植自 analysis.html）
  * ===================================================================== */
@@ -1110,13 +1276,76 @@ async function anLoadProducts() {
   } catch (e) { /* 已提示 */ }
 }
 
+/** 拉取选项联动：仅勾选「拉取比对」时才可勾选「保留到本地」 */
+function anPullToggle() {
+  const on = $('an-pull').checked;
+  $('an-keep').disabled = !on;
+  if (!on) $('an-keep').checked = false;
+}
+
+/** 拉取服务器同商品数据合并分析（POST /api/local/analysis/pull）。
+ *  成功返回响应 JSON；失败时在结果区显示友好错误并返回 null。 */
+async function anPullAnalyze(pid, keep) {
+  try {
+    const resp = await fetch('/api/local/analysis/pull', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+      body: JSON.stringify({ product_id: pid, keep: keep }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const detail = typeof data.detail === 'string' ? data.detail
+        : Array.isArray(data.detail) ? data.detail.map(d => d.msg || JSON.stringify(d)).join('；') : '';
+      let hint = detail;
+      if (resp.status === 401 || resp.status === 403) {
+        hint = '鉴权失败：请检查页面右上角的 API Key';
+      } else if (resp.status === 422) {
+        hint = hint || '请求参数无效（商品可能不存在）';
+      } else if (!hint) {
+        hint = 'HTTP ' + resp.status + '（可能未配置同步服务器 SYNC_SERVER_URL，或公网服务器不可达）';
+      }
+      $('an-result').innerHTML = `<div class="panel">
+        <div class="conclusion gray">⚠️ 拉取服务器数据失败：${esc(hint)}。可取消勾选「拉取服务器数据合并比对」后仅分析本机数据。</div>
+      </div>`;
+      return null;
+    }
+    return data;
+  } catch (e) {
+    $('an-result').innerHTML = `<div class="panel">
+      <div class="conclusion gray">⚠️ 拉取服务器数据失败：网络错误（公网服务器不可达）。可取消勾选「拉取服务器数据合并比对」后仅分析本机数据。</div>
+    </div>`;
+    return null;
+  }
+}
+
 async function anRun() {
   const pid = $('an-productSelect').value;
   if (!pid) { toast('请先选择商品'); return; }
-  const url = `/api/analysis/price-discrimination?product_id=${encodeURIComponent(pid)}`;
+  const pull = $('an-pull').checked;
   $('an-loading').style.display = 'block';
   $('an-result').innerHTML = '';
   $('an-platformResult').innerHTML = '';
+  if (pull) {
+    // 拉取服务器同商品数据合并比对：响应 {analysis, pulled, inserted, kept, product_id}
+    const r = await anPullAnalyze(pid, $('an-keep').checked);
+    if (r) {
+      const info = `<div class="panel" style="font-size:12px;color:var(--muted)">
+        🌐 已从服务器拉取 <b>${r.pulled}</b> 条（新增入库 ${r.inserted} 条，${r.kept ? '已留存本机' : '未留存，分析完已删除'}）
+      </div>`;
+      if (r.analysis && !r.analysis.error && r.analysis.reason_code) {
+        anRenderResult(r.analysis);
+        $('an-result').insertAdjacentHTML('afterbegin', info);
+      } else {
+        // 服务器无该商品数据 / 分析失败：友好提示而非抛出
+        $('an-result').innerHTML = info + `<div class="panel">
+          <div class="conclusion gray">📭 ${esc((r.analysis && r.analysis.error) || '服务器未返回可分析的数据')}。</div>
+        </div>`;
+      }
+    }
+    $('an-loading').style.display = 'none';
+    return;
+  }
+  const url = `/api/analysis/price-discrimination?product_id=${encodeURIComponent(pid)}`;
   try {
     const r = await api(url);
     anRenderResult(r);
