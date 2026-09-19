@@ -19,3 +19,7 @@ Thumbs.db
 
 # Vercel 本地
 .vercel/
+
+# 本地工具与备份（不随仓库发布）
+_tools/
+_旧版备份/
