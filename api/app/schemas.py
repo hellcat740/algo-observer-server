@@ -104,6 +104,8 @@ class ObservationOut(BaseModel):
     dom_price_text: Optional[str]
     dom_snapshot_path: Optional[str]
     source_code_version: Optional[str]
+    origin: Optional[str] = None       # local=本机采集 / pulled=从服务器拉取
+    synced_at: Optional[datetime] = None
     created_at: datetime
 
 

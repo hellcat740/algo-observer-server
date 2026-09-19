@@ -96,6 +96,16 @@ class Observation(Base):
         DateTime(timezone=True), nullable=False, default=_utcnow, comment="入库时间（UTC）"
     )
 
+    # ---- 数据通路（本地后端 ⇄ 公网服务器同步） ----
+    origin = Column(
+        String(20), nullable=False, default="local",
+        comment="数据来源：local=本机采集 / pulled=从服务器拉取比对",
+    )
+    synced_at = Column(
+        DateTime(timezone=True), nullable=True,
+        comment="已同步到公网服务器的时间（NULL=待同步）",
+    )
+
     # ---- 索引设计 ----
     __table_args__ = (
         # 按商品检索：最常见的「同商品比价」查询

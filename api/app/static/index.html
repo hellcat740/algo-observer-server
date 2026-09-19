@@ -336,6 +336,13 @@
         <span id="obs-importResult" class="muted" style="font-size:12px"></span>
         <span class="muted" style="font-size:12px">导出为 zip（含 SHA-256 校验清单），可导入到其他机器；重复导入自动跳过已有记录</span>
       </div>
+      <!-- 手动补录工具条：管理员线下采集的样本直接入库 -->
+      <div class="panel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <b style="font-size:13px">✍️ 数据管理</b>
+        <button class="btn" onclick="obsAddOpen()">＋ 新增记录</button>
+        <span class="muted" style="font-size:12px">管理员手动补录单条观测（走清洗管线，与插件上报同口径入库）</span>
+        <span id="obs-addResult" class="muted" style="font-size:12px"></span>
+      </div>
       <div class="panel filters">
         <label>商品ID <input id="obs-fProductId" placeholder="精确匹配"></label>
         <label>平台
@@ -489,6 +496,65 @@
   <div class="drawer-body">
     <dl class="kv" id="obs-detailKv"></dl>
     <pre class="json" id="obs-detailJson"></pre>
+  </div>
+</div>
+
+<!-- 新增记录抽屉：管理员手动补录单条观测（POST /api/observations，管理员密钥已放行） -->
+<div class="drawer-mask" id="obs-addMask" onclick="obsAddClose()"></div>
+<div class="drawer" id="obs-addDrawer">
+  <div class="drawer-head">
+    <h2>新增观测记录</h2>
+    <button class="x" onclick="obsAddClose()">×</button>
+  </div>
+  <div class="drawer-body">
+    <div class="panel" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
+      <label>平台 *
+        <select id="obs-addPlatform" style="width:100%">
+          <option value="taobao">taobao（淘宝）</option>
+          <option value="tmall">tmall（天猫）</option>
+          <option value="jd">jd（京东）</option>
+          <option value="pinduoduo">pinduoduo（拼多多）</option>
+          <option value="meituan">meituan（美团）</option>
+          <option value="eleme">eleme（饿了么）</option>
+          <option value="dianping">dianping（大众点评）</option>
+          <option value="ctrip">ctrip（携程）</option>
+          <option value="didi">didi（滴滴）</option>
+          <option value="yangkeduo">yangkeduo</option>
+        </select>
+      </label>
+      <label>展示价（元）*
+        <input id="obs-addPrice" type="number" step="0.01" min="0" placeholder="如 99.00" style="width:100%">
+      </label>
+      <label style="grid-column:1/3">商品 ID *
+        <input id="obs-addProductId" placeholder="平台商品 ID" style="width:100%">
+      </label>
+      <label style="grid-column:1/3">商品名称 *
+        <input id="obs-addProductName" placeholder="页面展示的商品标题" style="width:100%">
+      </label>
+      <label style="grid-column:1/3">商品链接 *
+        <input id="obs-addProductUrl" placeholder="https://…" style="width:100%">
+      </label>
+      <label>登录状态
+        <select id="obs-addIsLogin" style="width:100%">
+          <option value="">未知</option>
+          <option value="true">已登录</option>
+          <option value="false">未登录</option>
+        </select>
+      </label>
+      <label>会员等级
+        <input id="obs-addMembership" placeholder="如 88VIP / PLUS（可空）" style="width:100%">
+      </label>
+      <label style="grid-column:1/3">匿名用户 ID（可空，补录他人样本时填其 UUID）
+        <input id="obs-addAnonymousId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="width:100%">
+      </label>
+      <label style="grid-column:1/3">User-Agent（自动填充，可改）
+        <input id="obs-addUserAgent" style="width:100%">
+      </label>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
+      <button class="btn" onclick="obsAddSubmit()">提交入库</button>
+      <span id="obs-addMsg" class="muted" style="font-size:12px"></span>
+    </div>
   </div>
 </div>
 
@@ -819,6 +885,70 @@ let obsItems = {};  // 当前页记录：observation_id → 行数据（删除�
 function obsExport() {
   if (!apiKey) { toast('请先填写 API Key'); return; }
   window.open('/api/export/bundle?api_key=' + encodeURIComponent(apiKey), '_blank');
+}
+
+/** 打开新增记录抽屉：预填 User-Agent，清空上次输入 */
+function obsAddOpen() {
+  if (!apiKey) { toast('请先填写 API Key'); return; }
+  $('obs-addUserAgent').value = navigator.userAgent;
+  $('obs-addMsg').textContent = '';
+  $('obs-addDrawer').classList.add('open');
+  $('obs-addMask').classList.add('open');
+}
+
+function obsAddClose() {
+  $('obs-addDrawer').classList.remove('open');
+  $('obs-addMask').classList.remove('open');
+}
+
+/** 提交新增记录：元→分由后端清洗管线完成；成功后刷新列表 */
+async function obsAddSubmit() {
+  if (!apiKey) { toast('请先填写 API Key'); return; }
+  const val = id => $(id).value.trim();
+  const price = parseFloat(val('obs-addPrice'));
+  if (!val('obs-addProductId') || !val('obs-addProductName') || !val('obs-addProductUrl')
+      || isNaN(price) || price <= 0) {
+    $('obs-addMsg').textContent = '请填写完整：商品 ID / 名称 / 链接 / 展示价（元）';
+    return;
+  }
+  const payload = {
+    platform_code: val('obs-addPlatform'),
+    product_id: val('obs-addProductId'),
+    product_name: val('obs-addProductName'),
+    product_url: val('obs-addProductUrl'),
+    display_price_cents: price,   // 小数按「元」由 cleaning.py 换算为分
+    currency: 'CNY',
+    user_agent: val('obs-addUserAgent') || 'console-manual/1.0',
+    source_type: 'manual',
+  };
+  const isLogin = val('obs-addIsLogin');
+  if (isLogin) payload.is_login = isLogin === 'true';
+  if (val('obs-addMembership')) payload.membership_level = val('obs-addMembership');
+  if (val('obs-addAnonymousId')) payload.anonymous_id = val('obs-addAnonymousId');
+
+  $('obs-addMsg').textContent = '正在提交…';
+  try {
+    const resp = await fetch('/api/observations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const detail = typeof data.detail === 'string' ? data.detail
+        : Array.isArray(data.detail) ? data.detail.map(d => d.msg || JSON.stringify(d)).join('；') : '';
+      $('obs-addMsg').textContent = '入库失败：' + (detail || ('HTTP ' + resp.status));
+      return;
+    }
+    $('obs-addMsg').textContent = '';
+    $('obs-addResult').textContent = '已入库：' + (data.observation_id || '').slice(0, 8) + '…'
+      + (data.warnings && data.warnings.length ? '（警告：' + data.warnings.join('；') + '）' : '');
+    toast('新增记录成功');
+    obsAddClose();
+    obsLoad();
+  } catch (e) {
+    $('obs-addMsg').textContent = '入库失败：网络错误';
+  }
 }
 
 /** 导入数据包：选择 zip 后 multipart 上传，完成后显示统计并刷新表格 */

@@ -89,3 +89,20 @@ async def require_user(
             detail="缺少或非法的 X-User-Id：请从首页一键登录后再访问",
         )
     return str(uuidlib.UUID(x_user_id))  # 归一化为小写标准形式
+
+
+async def require_ingest_or_admin(
+    x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+):
+    """写入观测的复合入口：插件上报密钥（INGEST_KEY）或管理员密钥均可。
+
+    上报密钥随插件分发、天然公开；管理员补录（控制台「新增记录」）走哈希校验。
+    """
+    if x_api_key and (
+        hmac.compare_digest(x_api_key, INGEST_KEY) or check_admin_key(x_api_key)
+    ):
+        return x_api_key
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="需要上报密钥或管理员密钥",
+    )

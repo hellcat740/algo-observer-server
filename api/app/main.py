@@ -16,8 +16,10 @@ from sqlalchemy.orm import Session
 
 from .admin_api import router as admin_router
 from .analysis_api import router as analysis_router
-from .auth import check_admin_key, require_api_key, require_ingest_key
+from .auth import check_admin_key, require_api_key, require_ingest_key, require_ingest_or_admin
 from .my_api import router as my_router
+from .pool_api import router as pool_router
+from .sync_api import router as sync_router
 from .transfer_api import router as transfer_router
 from .cleaning import CleanError, clean_observation
 from .database import Base, engine, get_db
@@ -53,6 +55,12 @@ app.include_router(transfer_router)
 # 用户自助看板路由：/api/my/*（X-User-Id 免密鉴权）
 app.include_router(my_router)
 
+# 数据池路由：/api/pool/*（X-User-Id 鉴权：批量同步上行 / 按商品拉取比对）
+app.include_router(pool_router)
+
+# 本地数据通道路由：/api/local/*（本机后端：自动同步公网 / 拉取服务器数据比对）
+app.include_router(sync_router)
+
 # CORS：允许浏览器插件 / 任意页面直调后端（含 X-API-Key 自定义头）。
 # ⚠️ 本地演示环境放开为 "*"；生产部署时应收敛到具体来源（如插件 ID 对应的
 # chrome-extension://<id> 与控制台域名），并限制 allow_methods/allow_headers。
@@ -68,27 +76,39 @@ app.add_middleware(
 def init_db():
     """启动时自动建表（已存在则跳过），随后做轻量迁移。生产环境建议改用 Alembic。"""
     Base.metadata.create_all(bind=engine)
-    _migrate_user_ref()
+    _migrate_lightweight()
+    # 数据通路：配置 SYNC_SERVER_URL 后，后台线程自动把本机数据上行到公网服务器
+    from .sync_api import start_auto_sync
+    start_auto_sync()
 
 
-def _migrate_user_ref():
-    """轻量迁移（一次性变更，2026-09）：为老库补 observations.user_ref 列。
+def _migrate_lightweight():
+    """轻量迁移（增量补列，SQLite/PostgreSQL 通用）：
 
-    - 新库：create_all 已含该列，此处直接跳过；
-    - 老库：补列 + 补索引，老数据该列为 NULL。
+    - 2026-09 一次性变更：observations.user_ref（匿名用户引用）+ 索引；
+    - 2026-09 数据通路：observations.origin（来源标记）与 observations.synced_at
+      （同步时间），供本地后端 ⇄ 公网服务器同步使用。
+    新库 create_all 已含这些列，此处直接跳过；老库补列，老数据按列语义取默认值。
     实现用 SQLAlchemy inspect（SQLite 底层走 PRAGMA table_info，
     PostgreSQL 底层走 information_schema），两种库一套代码。
     """
     from sqlalchemy import inspect
 
     cols = [c["name"] for c in inspect(engine).get_columns("observations")]
-    if "user_ref" in cols:
-        return
     with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE observations ADD COLUMN user_ref VARCHAR(36)"))
-        conn.execute(text(
-            "CREATE INDEX IF NOT EXISTS ix_observations_user_ref ON observations (user_ref)"
-        ))
+        if "user_ref" not in cols:
+            conn.execute(text("ALTER TABLE observations ADD COLUMN user_ref VARCHAR(36)"))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_observations_user_ref ON observations (user_ref)"
+            ))
+        if "origin" not in cols:
+            conn.execute(text(
+                "ALTER TABLE observations ADD COLUMN origin VARCHAR(20) NOT NULL DEFAULT 'local'"
+            ))
+        if "synced_at" not in cols:
+            conn.execute(text(
+                "ALTER TABLE observations ADD COLUMN synced_at TIMESTAMP WITH TIME ZONE"
+            ))
 
 
 # ---------- 公共接口（不鉴权） ----------
@@ -178,10 +198,13 @@ def analysis_page():
     "/api/observations",
     response_model=ObservationCreated,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_ingest_key)],  # 仅插件上报密钥可写
+    dependencies=[Depends(require_ingest_or_admin)],  # 插件上报密钥 或 管理员密钥可写
 )
 def create_observation(payload: ObservationIn, db: Session = Depends(get_db)):
-    """写入一条观测：清洗校验 → 入库 → 维护 users 表（如带 anonymous_id）。"""
+    """写入一条观测：清洗校验 → 入库 → 维护 users 表（如带 anonymous_id）。
+
+    插件直传用上报密钥；管理员也可在控制台手动补录（如线下采集的样本）。
+    """
     try:
         cleaned, warnings, anonymous_id = clean_observation(payload)
     except CleanError as exc:
