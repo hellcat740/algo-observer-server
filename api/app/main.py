@@ -374,3 +374,9 @@ def stats_summary(db: Session = Depends(get_db)):
     last_7_days = [DayCount(day=d, count=c) for d, c in sorted(day_map.items())]
 
     return StatsSummary(total=total, by_platform=by_platform, last_7_days=last_7_days)
+
+
+# 模块导入即完成建表与轻量迁移：Vercel 等 serverless 平台不发送 ASGI lifespan
+# 事件，@app.on_event("startup") 在那里不会触发；create_all 幂等，本地 uvicorn
+# 场景下启动钩子会再跑一遍同样无副作用。start_auto_sync 内部有幂等与 VERCEL 守卫。
+init_db()
