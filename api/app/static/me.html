@@ -10,14 +10,42 @@
     font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
     background: #f1f5f9; min-height: 100vh; color: #1e293b;
   }
-  .topbar {
-    background: #0f172a; color: #fff; padding: 14px 24px;
-    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  /* ---- 左侧导航外壳 ---- */
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 190px; flex-shrink: 0; background: #0f172a; color: #fff;
+    display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
   }
-  .topbar .brand { font-weight: 700; font-size: 16px; }
-  .topbar .uid { font-size: 12px; color: #94a3b8; font-family: ui-monospace, monospace; }
-  .topbar a { color: #a5b4fc; text-decoration: none; font-size: 13px; margin-left: 14px; }
-  .topbar a:hover { color: #c7d2fe; }
+  .side-head { padding: 18px 16px 14px; border-bottom: 1px solid #1e293b; }
+  .side-head .brand { font-weight: 700; font-size: 16px; }
+  .side-head .uid { font-size: 11.5px; color: #94a3b8; font-family: ui-monospace, monospace; margin-top: 6px; word-break: break-all; }
+  .nav-items { flex: 1; padding: 10px 8px; display: flex; flex-direction: column; gap: 4px; }
+  .nav-item {
+    display: block; color: #cbd5e1; text-decoration: none; font-size: 13.5px;
+    padding: 10px 12px; border-radius: 8px; white-space: nowrap;
+  }
+  .nav-item:hover { background: #1e293b; color: #fff; }
+  .nav-item.active { background: #4f46e5; color: #fff; font-weight: 600; }
+  .side-foot { padding: 12px 16px 16px; border-top: 1px solid #1e293b; display: flex; flex-direction: column; gap: 9px; }
+  .side-foot a { color: #a5b4fc; text-decoration: none; font-size: 12.5px; }
+  .side-foot a:hover { color: #c7d2fe; }
+  .content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .tab-pane { flex: 1; display: flex; flex-direction: column; }
+  .iframe-pane { position: relative; }
+  .iframe-pane iframe { width: 100%; flex: 1; border: 0; display: block; }
+  .iframe-loading {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #94a3b8; font-size: 14px;
+  }
+  @media (max-width: 760px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; height: auto; position: static; }
+    .side-head { padding: 12px 16px 10px; }
+    .nav-items { flex-direction: row; overflow-x: auto; padding: 8px; }
+    .nav-item { padding: 8px 12px; }
+    .side-foot { flex-direction: row; flex-wrap: wrap; gap: 8px 16px; padding: 10px 16px; }
+    .tab-pane, .iframe-pane iframe { min-height: calc(100vh - 170px); }
+  }
   .wrap { max-width: 960px; margin: 0 auto; padding: 28px 20px 60px; }
   h2 { font-size: 20px; color: #0f172a; margin: 28px 0 14px; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
@@ -66,21 +94,27 @@
 </style>
 </head>
 <body>
-<div class="topbar">
-  <div>
+<div class="layout">
+<nav class="sidebar">
+  <div class="side-head">
     <div class="brand">📊 我的看板</div>
     <div class="uid" id="uidText">匿名身份初始化中…</div>
   </div>
-  <div>
-    <a href="/">← 返回门户</a>
-    <a href="/download">下载插件</a>
-    <a href="/overview">数据池总览</a>
-    <a href="/lab">比对分析</a>
+  <div class="nav-items">
+    <a href="#" class="nav-item active" data-tab="me">📊 我的看板</a>
+    <a href="#" class="nav-item" data-tab="overview">📈 数据池总览</a>
+    <a href="#" class="nav-item" data-tab="lab">🔬 比对分析</a>
+    <a href="#" class="nav-item" data-tab="about">📖 方法说明</a>
+  </div>
+  <div class="side-foot">
     <a href="#" id="idManageBtn">身份管理</a>
     <a href="#" id="logoutBtn">退出身份</a>
+    <a href="/">← 返回门户</a>
+    <a href="/download">下载插件</a>
   </div>
-</div>
-
+</nav>
+<main class="content">
+<div class="tab-pane" id="tab-me">
 <div class="wrap" style="padding-top:14px">
   <div class="panel" id="idPanel" style="display:none;font-size:12.5px;color:#475569;line-height:1.9">
     完整身份 ID：<code id="uidFull" style="background:#f1f5f9;padding:2px 8px;border-radius:6px;user-select:all"></code>
@@ -131,6 +165,13 @@
     <a class="btn plain" href="/">返回门户</a>
   </div>
 </div>
+</div><!-- /tab-me -->
+
+<div class="tab-pane iframe-pane" id="tab-overview" style="display:none"><div class="iframe-loading">⏳ 加载中…</div></div>
+<div class="tab-pane iframe-pane" id="tab-lab" style="display:none"><div class="iframe-loading">⏳ 加载中…</div></div>
+<div class="tab-pane iframe-pane" id="tab-about" style="display:none"><div class="iframe-loading">⏳ 加载中…</div></div>
+</main>
+</div><!-- /layout -->
 
 <script>
 (function () {
@@ -147,7 +188,7 @@
   if (hashMatch) {
     uid = hashMatch[0].toLowerCase();
     localStorage.setItem(KEY, uid);
-    if (history.replaceState) history.replaceState(null, '', location.pathname);
+    if (history.replaceState) history.replaceState(null, '', location.pathname + location.search);
   }
 
   if (!uid) {
@@ -276,6 +317,54 @@
 
   /* 首次进入自动完成一键登录建档（失败不阻塞看板） */
   api('/api/my/login', { method: 'POST' }).catch(function () {});
+})();
+</script>
+
+<script>
+(function () {
+  'use strict';
+  /* ---------- 左侧导航：标签切换 + 同源 iframe 懒加载 + ?tab= 深链 ----------
+     注意：本脚本位于身份脚本之后，hash 身份采纳逻辑已优先执行完毕。 */
+  var TAB_SRC = { overview: '/overview?embed=1', lab: '/lab?embed=1', about: '/about?embed=1' };
+  var loaded = {};
+  function forEach(list, fn) { Array.prototype.forEach.call(list, fn); }
+
+  function activate(tab) {
+    if (!document.getElementById('tab-' + tab)) tab = 'me';
+    forEach(document.querySelectorAll('.nav-item'), function (el) {
+      el.className = el.className.replace(/\s*\bactive\b/g, '');
+      if (el.getAttribute('data-tab') === tab) el.className += ' active';
+    });
+    forEach(document.querySelectorAll('.tab-pane'), function (p) {
+      p.style.display = (p.id === 'tab-' + tab) ? 'flex' : 'none';
+    });
+    /* 首次切换到该标签才设置 iframe src（懒加载），加载完成后隐藏占位 */
+    if (TAB_SRC[tab] && !loaded[tab]) {
+      loaded[tab] = true;
+      var pane = document.getElementById('tab-' + tab);
+      var f = document.createElement('iframe');
+      f.setAttribute('title', tab);
+      f.addEventListener('load', function () {
+        var ph = pane.querySelector('.iframe-loading');
+        if (ph) ph.style.display = 'none';
+      });
+      f.src = TAB_SRC[tab];
+      pane.appendChild(f);
+    }
+    if (history.replaceState) {
+      history.replaceState(null, '', tab === 'me' ? location.pathname : location.pathname + '?tab=' + tab);
+    }
+  }
+
+  forEach(document.querySelectorAll('.nav-item'), function (el) {
+    el.addEventListener('click', function (e) {
+      e.preventDefault();
+      activate(el.getAttribute('data-tab'));
+    });
+  });
+
+  var m = location.search.match(/[?&]tab=([a-z]+)/);
+  activate(m ? m[1] : 'me');
 })();
 </script>
 </body>
