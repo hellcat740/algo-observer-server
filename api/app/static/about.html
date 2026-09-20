@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>关于与方法说明 · 算法歧视众包观测</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: #f1f5f9; min-height: 100vh; color: #1e293b;
+  }
+  .topbar {
+    background: #0f172a; color: #fff; padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+  .topbar .brand { font-weight: 700; font-size: 16px; }
+  .topbar a { color: #a5b4fc; text-decoration: none; font-size: 13px; margin-left: 14px; }
+  .topbar a:hover { color: #c7d2fe; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 28px 20px 60px; }
+  h2 { font-size: 20px; color: #0f172a; margin: 28px 0 14px; }
+  .panel { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; padding: 22px; box-shadow: 0 2px 10px rgba(15,23,42,.04); }
+  .panel p { font-size: 14px; color: #334155; line-height: 1.9; }
+  .panel p + p { margin-top: 10px; }
+  .panel ul { font-size: 14px; color: #334155; line-height: 1.9; padding-left: 22px; }
+  .panel li { margin-top: 6px; }
+  .panel b { color: #0f172a; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 6px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  th { color: #64748b; font-weight: 600; font-size: 12.5px; background: #f8fafc; }
+  tr:hover td { background: #f8fafc; }
+  .notice { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 10px; padding: 10px 14px; font-size: 12.5px; margin-top: 14px; line-height: 1.7; }
+  code { background: #f1f5f9; padding: 1px 7px; border-radius: 6px; font-size: 12.5px; }
+  a.inline { color: #4f46e5; text-decoration: none; }
+  a.inline:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">📖 关于与方法说明</div>
+  <div>
+    <a href="/">← 返回门户</a>
+    <a href="/me">我的看板</a>
+    <a href="/overview">数据池总览</a>
+    <a href="/lab">比对分析</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <h2>项目简介</h2>
+  <div class="panel">
+    <p>
+      「算法歧视众包观测」是一个公益性质的开源研究项目。它通过浏览器插件，在用户正常浏览电商商品页时
+      <b>众包采集公开价格数据</b>，再用统计方法检验：同一商品、同一时刻，不同用户看到的价格是否存在系统性差异。
+      如果发现稳定、可复现的价差模式，这些结果可作为<b>公益诉讼与监管研究的证据线索</b>，帮助回答
+      「大数据杀熟是否真的存在、有多普遍」这个公共问题。
+    </p>
+  </div>
+
+  <h2>我们采集什么</h2>
+  <div class="panel">
+    <p>插件只在商品页触发，采集内容分为三类：</p>
+    <table>
+      <thead>
+        <tr><th style="width:130px">类别</th><th style="width:240px">字段</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><b>商品价格</b></td><td>展示价 / 到手价 / 优惠信息</td><td>页面上公开展示的价格与促销文案，是比对分析的核心数据。</td></tr>
+        <tr><td><b>商品信息</b></td><td>商品 ID / 名称 / 链接 / 平台</td><td>用于把不同用户对「同一件商品」的报价归拢到一起。</td></tr>
+        <tr><td><b>浏览环境</b></td><td>IP 城市、设备内存 / 核数 / 屏幕分辨率、User-Agent、是否登录、会员等级、是否新用户、注册天数、是否高峰时段</td><td>描述「看到价格的是什么样的用户/设备」，用于分组检验价格差异是否与用户画像相关。全部为浏览器公开可读的属性。</td></tr>
+      </tbody>
+    </table>
+    <div class="notice">
+      🚫 <b>明确不采集</b>：账号密码、支付信息、聊天记录、浏览历史、通讯录等任何与价格无关的私密内容。
+      所有字段均为页面公开展示信息或浏览器环境公开属性。
+    </div>
+  </div>
+
+  <h2>隐私与匿名机制</h2>
+  <div class="panel">
+    <ul>
+      <li><b>匿名身份</b>：每位参与者由一串<b>随机生成的 UUID</b> 标识，仅保存在你自己的浏览器里，不包含姓名、手机号等任何个人信息，也无需注册。</li>
+      <li><b>二次假名化</b>：服务器在拉取数据做比对分析时，用户标识会被再次假名化为 <code>u_ + SHA-256 前 10 位</code> 的形式，分析侧看不到原始 UUID。</li>
+      <li><b>文本脱敏</b>：店铺名、用户标记等文本字段支持脱敏处理（保留首字，其余以 <code>*</code> 替代）。</li>
+      <li><b>退出与删除</b>：你可以随时在「我的看板」退出身份、清除本机标识；管理员也可以在后台删除数据。卸载插件即停止采集。</li>
+    </ul>
+  </div>
+
+  <h2>统计方法</h2>
+  <div class="panel">
+    <ul>
+      <li><b>价格基准口径</b>：优先取<b>展示价</b>作为比价基准；展示价缺失时回退到<b>到手价</b>，保证口径一致可比。</li>
+      <li><b>分组比较</b>：按匿名用户分组，比较<b>同一商品</b>在不同用户处的报价分布，而不是跨商品比价格高低。</li>
+      <li><b>疑似阈值</b>：组间价差达到或超过 <b>5%</b> 时，触发「疑似差异化定价」标记，进入进一步检验。</li>
+      <li><b>显著性检验</b>：使用 <b>Mann-Whitney U 检验</b>（对分布形态不做假设）与 <b>Welch t 检验</b>（允许两组方差不等）判断价差是否具有统计显著性。</li>
+      <li><b>小样本降级</b>：当某组样本量 <b>&lt; 3</b> 时，不做显著性推断，只输出描述性统计（均值、极差等），并在结果中<b>明确标注样本不足</b>。</li>
+      <li><b>跨商品复现</b>：单个商品的价差可能来自促销时点等偶然因素；只有当同一平台的价差模式在 <b>≥ 2 个商品</b>上复现时，才升级为「平台级疑似」。</li>
+    </ul>
+    <div class="notice">
+      ⚖️ <b>重要提示</b>：「统计疑似」≠「法律认定」。统计结果只能说明价格分布存在值得关注的差异模式，
+      是<b>证据线索</b>而非结论；是否构成法律意义上的价格歧视，需要由监管机关或司法机关结合更多事实认定。
+    </div>
+  </div>
+
+  <h2>数据通路</h2>
+  <div class="panel">
+    <ul>
+      <li><b>上报</b>：浏览器插件在商品页采集数据后，自动上报到服务器的 Postgres 数据库。</li>
+      <li><b>分析</b>：做比对分析时，可按商品从数据池拉取<b>全池匿名数据</b>到本地进行比对；分析副本可选择留存，也可在分析完成后立即删除。</li>
+      <li><b>管理</b>：管理员负责数据管理与演示数据清理，普通用户无法看到他人的原始身份标识。</li>
+    </ul>
+  </div>
+
+  <h2>免责声明</h2>
+  <div class="panel">
+    <p>
+      本项目仅用于<b>公益研究</b>目的。所有数据均为用户主动贡献的<b>众包样本</b>，样本覆盖受参与者分布影响，
+      可能存在偏差，不代表任何平台的整体定价行为。
+    </p>
+    <p>
+      项目输出的任何分析结果<b>不构成对任何平台的指控</b>，仅为学术研究与公益诉讼提供线索参考。
+      项目代码开源，欢迎监督与贡献：<a class="inline" href="https://github.com/hellcat740/algo-observer-server">https://github.com/hellcat740/algo-observer-server</a>
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

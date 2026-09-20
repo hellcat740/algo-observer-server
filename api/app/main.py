@@ -192,6 +192,24 @@ def analysis_page():
     return FileResponse(STATIC_DIR / "analysis.html")
 
 
+@app.get("/overview", include_in_schema=False)
+def overview_page():
+    """数据池总览看板（用户侧，X-User-Id）：全池数据量与歧视分析情况。"""
+    return FileResponse(STATIC_DIR / "overview.html")
+
+
+@app.get("/lab", include_in_schema=False)
+def lab_page():
+    """比对分析实验室（用户侧）：拉取数据池商品数据在浏览器本地比对分析。"""
+    return FileResponse(STATIC_DIR / "lab.html")
+
+
+@app.get("/about", include_in_schema=False)
+def about_page():
+    """关于与方法说明页（静态内容，无需身份）。"""
+    return FileResponse(STATIC_DIR / "about.html")
+
+
 # ---------- 数据接口 ----------
 
 @app.post(

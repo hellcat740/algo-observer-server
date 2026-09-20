@@ -17,10 +17,11 @@ UUID 明文扩散到他人本地库，属深度防御，不改变匿名性质。
 """
 import hashlib
 import uuid as uuidlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from .auth import require_user
@@ -303,4 +304,111 @@ def pool_products(
             }
             for r in rows
         ]
+    }
+
+
+# 总览接口返回的每商品摘要字段数上限（避免全池很大时响应体膨胀）
+OVERVIEW_PRODUCTS_MAX = 50
+
+
+def _summarize_product(p: dict[str, Any]) -> dict[str, Any]:
+    """analyze_platform 的每商品完整结果很大（含逐条价格数组、回归明细等），
+    总览页只需要判定结论级字段，这里裁剪成摘要。"""
+    return {
+        "product_id": p.get("product_id"),
+        "product_name": p.get("product_name"),
+        "flag": bool(p.get("flag")),
+        "low_confidence": bool(p.get("low_confidence")),
+        "fake_discount": bool(p.get("fake_discount")),
+        "median_price_diff_percent": p.get("median_price_diff_percent"),
+        "diff_direction": p.get("diff_direction"),
+        "discount_depth_percent": p.get("discount_depth_percent"),
+        "reason_code": p.get("reason_code") or [],
+        "insufficient_reason": p.get("insufficient_reason"),
+        "sample_total": p.get("sample_total"),
+        "user_count": p.get("user_count"),
+        "mann_whitney": p.get("mann_whitney"),
+    }
+
+
+@router.get("/overview")
+async def pool_overview(db=Depends(get_db)):
+    """全池总览：数据规模、平台分布、近 7 天采集趋势、平台级歧视分析摘要。
+
+    分析是同步阻塞计算，用 run_in_threadpool 跑；任何分析异常都被吞掉并
+    以 {"error": ...} 返回，绝不让整个总览接口 500。
+    """
+    from sqlalchemy import func
+
+    total_observations = db.query(func.count(Observation.observation_id)).scalar() or 0
+    total_users = db.query(func.count(User.anonymous_id)).scalar() or 0
+    total_products = (
+        db.query(func.count(func.distinct(Observation.product_id))).scalar() or 0
+    )
+
+    platform_rows = (
+        db.query(Observation.platform_code, func.count())
+        .group_by(Observation.platform_code)
+        .order_by(func.count().desc())
+        .all()
+    )
+    platforms = [
+        {"platform_code": code, "count": int(cnt)} for code, cnt in platform_rows
+    ]
+
+    # 最近 7 天（含今天，UTC）每日观测数：数据库无关写法，Python 里按天聚合
+    today = datetime.now(timezone.utc).date()
+    start_day = today - timedelta(days=6)
+    start_dt = datetime(start_day.year, start_day.month, start_day.day, tzinfo=timezone.utc)
+    ts_rows = (
+        db.query(Observation.fetch_ts)
+        .filter(Observation.fetch_ts >= start_dt)
+        .all()
+    )
+    day_map: dict[str, int] = {}
+    for i in range(7):
+        day_map[(start_day + timedelta(days=i)).isoformat()] = 0
+    for (ts,) in ts_rows:
+        if ts is None:
+            continue
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        key = ts.astimezone(timezone.utc).date().isoformat()
+        if key in day_map:
+            day_map[key] += 1
+    last_7_days = [{"day": d, "count": c} for d, c in sorted(day_map.items())]
+
+    latest = db.query(func.max(Observation.fetch_ts)).scalar()
+    latest_fetch_ts = latest.isoformat() if latest else None
+
+    analysis: dict[str, Any]
+    try:
+        # analysis 与 app 同为 api/ 下的顶层包，用绝对导入；放函数内避免启动开销
+        from analysis.discrimination import analyze_platform
+        from .database import engine
+
+        raw = await run_in_threadpool(analyze_platform, engine)
+        products = raw.get("products") or []
+        analysis = {
+            "platform_suspected": bool(raw.get("platform_suspected")),
+            "reason_code": raw.get("reason_code") or [],
+            "total_products_analyzed": len(products),
+            "flagged_products": raw.get("flagged_products", 0),
+            "flagged_product_ids": raw.get("flagged_product_ids") or [],
+            "low_confidence_products": raw.get("low_confidence_products", 0),
+            "low_confidence_product_ids": raw.get("low_confidence_product_ids") or [],
+            "analyzed_at": raw.get("analyzed_at"),
+            "products": [_summarize_product(p) for p in products[:OVERVIEW_PRODUCTS_MAX]],
+        }
+    except Exception as exc:
+        analysis = {"error": f"{type(exc).__name__}: {exc}"}
+
+    return {
+        "total_observations": int(total_observations),
+        "total_users": int(total_users),
+        "total_products": int(total_products),
+        "platforms": platforms,
+        "last_7_days": last_7_days,
+        "latest_fetch_ts": latest_fetch_ts,
+        "analysis": analysis,
     }

@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>比对分析实验室 · 算法歧视众包观测</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: #f1f5f9; min-height: 100vh; color: #1e293b;
+  }
+  .topbar {
+    background: #0f172a; color: #fff; padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+  .topbar .brand { font-weight: 700; font-size: 16px; }
+  .topbar .uid { font-size: 12px; color: #94a3b8; font-family: ui-monospace, monospace; }
+  .topbar a { color: #a5b4fc; text-decoration: none; font-size: 13px; margin-left: 14px; }
+  .topbar a:hover { color: #c7d2fe; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 28px 20px 60px; }
+  h2 { font-size: 20px; color: #0f172a; margin: 28px 0 14px; }
+  .panel { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; padding: 22px; box-shadow: 0 2px 10px rgba(15,23,42,.04); }
+  .btn {
+    display: inline-block; text-decoration: none; cursor: pointer; border: none;
+    border-radius: 10px; padding: 11px 22px; font-size: 14.5px; font-weight: 600;
+    background: #4f46e5; color: #fff;
+  }
+  .btn:hover { background: #4338ca; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.plain { background: #fff; color: #334155; border: 1.5px solid #cbd5e1; }
+  .btn.small { padding: 6px 14px; font-size: 12.5px; border-radius: 8px; }
+  .btn.danger { background: #fff; color: #dc2626; border: 1.5px solid #fca5a5; }
+  .btn.danger:hover { background: #fef2f2; }
+  .notice { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 10px; padding: 10px 14px; font-size: 12.5px; margin-top: 14px; line-height: 1.7; }
+  .err { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-top: 12px; }
+  .empty { text-align: center; padding: 40px 20px; color: #64748b; }
+  .empty .big { font-size: 40px; margin-bottom: 10px; }
+  .search-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .search-row input[type=text] {
+    flex: 1; min-width: 200px; border: 1.5px solid #cbd5e1; border-radius: 10px;
+    padding: 10px 14px; font-size: 14px; outline: none;
+  }
+  .search-row input[type=text]:focus { border-color: #818cf8; }
+  .search-row select {
+    border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 12px;
+    font-size: 13.5px; background: #fff; color: #334155; outline: none;
+  }
+  .switch-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; color: #475569; }
+  .switch-row input { width: 16px; height: 16px; accent-color: #4f46e5; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
+  th { color: #64748b; font-weight: 600; font-size: 12.5px; background: #f8fafc; }
+  tr:hover td { background: #f8fafc; }
+  .plat { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .taobao { background: #fff7ed; color: #c2410c; }
+  .tmall { background: #fef2f2; color: #b91c1c; }
+  .jd { background: #fff1f2; color: #e11d48; }
+  .pinduoduo { background: #fdf2f8; color: #be185d; }
+  .otherplat { background: #eef2ff; color: #4338ca; }
+  .loading { text-align: center; padding: 28px; color: #64748b; font-size: 13.5px; }
+  .spin { display: inline-block; animation: rot 1s linear infinite; margin-right: 6px; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .result-card {
+    background: #fff; border-radius: 14px; border: 1px solid #e2e8f0;
+    padding: 22px; box-shadow: 0 2px 10px rgba(15,23,42,.04); margin-top: 16px;
+  }
+  .result-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .result-head .pname { font-size: 15.5px; font-weight: 700; color: #0f172a; word-break: break-all; }
+  .meta { font-size: 12.5px; color: #64748b; margin-top: 6px; }
+  .badge { display: inline-block; padding: 5px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .badge.red { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+  .badge.yellow { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+  .badge.green { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+  .badge.gray { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+  .kv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 14px; }
+  .kv { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; }
+  .kv .k { font-size: 12px; color: #64748b; }
+  .kv .v { font-size: 17px; font-weight: 700; color: #0f172a; margin-top: 3px; }
+  .kv .v small { font-size: 11.5px; font-weight: 500; color: #64748b; }
+  .dim-title { font-size: 13.5px; font-weight: 700; color: #334155; margin: 18px 0 8px; }
+  .dim-table td.diff { color: #dc2626; font-weight: 700; }
+  .dim-table td.nodiff { color: #64748b; }
+  .dim-name { font-size: 12px; font-weight: 700; color: #4f46e5; margin-bottom: 4px; }
+  .saved-row { display: flex; align-items: center; gap: 10px; padding: 12px 6px; border-bottom: 1px solid #f1f5f9; flex-wrap: wrap; font-size: 13px; }
+  .saved-row .info { flex: 1; min-width: 220px; }
+  .saved-row .t { color: #64748b; font-size: 12px; margin-top: 2px; }
+  .dim-block { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div>
+    <div class="brand">🔬 比对分析实验室</div>
+    <div class="uid" id="uidText">匿名身份初始化中…</div>
+  </div>
+  <div>
+    <a href="/">← 返回门户</a>
+    <a href="/me">我的看板</a>
+    <a href="/overview">数据池总览</a>
+    <a href="/about">方法说明</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <h2 style="margin-top:6px">① 拉取数据</h2>
+  <div class="panel">
+    <div style="font-size:13.5px;font-weight:700;color:#334155;margin-bottom:10px">手动挑选商品</div>
+    <div class="search-row">
+      <input type="text" id="kwInput" placeholder="输入商品关键词，如「充电宝」「牛奶」" />
+      <select id="platSel">
+        <option value="">全部平台</option>
+        <option value="taobao">淘宝</option>
+        <option value="tmall">天猫</option>
+        <option value="jd">京东</option>
+        <option value="pinduoduo">拼多多</option>
+      </select>
+      <button class="btn" id="searchBtn">搜索商品</button>
+    </div>
+    <div id="searchMsg"></div>
+    <div id="searchResult" style="margin-top:14px"></div>
+
+    <div style="border-top:1px dashed #e2e8f0;margin:20px 0"></div>
+
+    <div style="font-size:13.5px;font-weight:700;color:#334155;margin-bottom:10px">自动模式</div>
+    <div style="font-size:12.5px;color:#64748b;line-height:1.8;margin-bottom:10px">
+      一键拉取数据池中观测数最多的前 <b>10</b> 个可比对商品（每商品最多 500 条观测），逐个在浏览器本地完成比对分析并汇总结果。
+    </div>
+    <button class="btn" id="autoBtn">⚡ 自动分析所有可比对商品（前 10 个）</button>
+    <div id="autoMsg"></div>
+
+    <div class="switch-row">
+      <input type="checkbox" id="saveSwitch" />
+      <label for="saveSwitch">留存到本地浏览器（开启后拉取的观测数据与分析结果会存入本机 localStorage，最多保留 20 套；关闭则仅保存在内存，刷新页面即消失）</label>
+    </div>
+    <div class="notice">💡 所有分析均在你的浏览器本地完成，服务器只提供匿名观测数据。拉取需要有效的匿名身份（与插件上报使用同一身份）。</div>
+  </div>
+
+  <h2>② 分析结果</h2>
+  <div id="resultsArea">
+    <div class="panel empty" id="resultsEmpty">
+      <div class="big">🧪</div>
+      <p>还没有分析结果。先在上面搜索商品并点击「拉取分析」，或使用自动模式。</p>
+    </div>
+  </div>
+
+  <h2>③ 已留存数据集</h2>
+  <div class="panel">
+    <div id="savedList"></div>
+    <div style="margin-top:12px;text-align:right">
+      <button class="btn danger small" id="clearSavedBtn">清空全部留存</button>
+    </div>
+    <div class="notice">留存数据仅保存在本机浏览器 localStorage（键 lab_saved_datasets），不会上传，也不会同步到其他设备。</div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- 身份：与 me.html 完全一致的匿名 UUID 模式 ---------- */
+  var KEY = 'obs_user_id';
+  var uid = localStorage.getItem(KEY);
+  var UUID_RE = /[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}/;
+  var hashMatch = location.hash.match(UUID_RE);
+  if (hashMatch) {
+    uid = hashMatch[0].toLowerCase();
+    localStorage.setItem(KEY, uid);
+    if (history.replaceState) history.replaceState(null, '', location.pathname);
+  }
+  if (!uid) {
+    uid = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(16).slice(2));
+    localStorage.setItem(KEY, uid);
+  }
+  document.getElementById('uidText').textContent = '匿名身份：' + uid.slice(0, 8) + '…（仅本机保存）';
+
+  var PLAT = { taobao: '淘宝', tmall: '天猫', jd: '京东', pinduoduo: '拼多多', yangkeduo: '拼多多' };
+  var AUTO_N = 10; /* 自动模式分析的商品数量上限 */
+  var SAVED_KEY = 'lab_saved_datasets';
+  var SAVED_MAX = 20;
+
+  /* ---------- 工具 ---------- */
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmtCents(c) { return c == null ? '—' : '¥' + (c / 100).toFixed(2); }
+  function fmtYuan(y) { return y == null ? '—' : '¥' + y.toFixed(2); }
+  function fmtTime(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso);
+    return isNaN(d) ? String(iso) : d.toLocaleString('zh-CN', { hour12: false });
+  }
+  function platBadge(code) {
+    var name = PLAT[code] || code || '未知';
+    var cls = PLAT[code] ? code : 'otherplat';
+    return '<span class="plat ' + esc(cls) + '">' + esc(name) + '</span>';
+  }
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ 'X-User-Id': uid }, opts.headers || {});
+    return fetch(path, opts).then(function (r) {
+      if (!r.ok) {
+        if (r.status === 401) throw new Error('401 鉴权失败：匿名身份无效，请刷新页面重建身份');
+        throw new Error('HTTP ' + r.status);
+      }
+      return r.json();
+    });
+  }
+
+  function errBox(msg) {
+    return '<div class="err">⚠️ ' + esc(msg) + '。若是网络失败或服务冷启动，请稍后重试。</div>';
+  }
+
+  /* ================================================================
+     本地分析逻辑（纯 JS，无任何库）
+     ================================================================ */
+
+  /* 价格基准：优先 display_price_cents，缺失回退 actual_pay_price_cents，返回「元」 */
+  function priceOf(o) {
+    var c = (o.display_price_cents != null) ? o.display_price_cents : o.actual_pay_price_cents;
+    return (c == null || isNaN(c)) ? null : c / 100;
+  }
+
+  function mean(arr) {
+    if (!arr.length) return null;
+    var s = 0;
+    for (var i = 0; i < arr.length; i++) s += arr[i];
+    return s / arr.length;
+  }
+  function variance(arr) { /* 样本方差 */
+    if (arr.length < 2) return 0;
+    var m = mean(arr), s = 0;
+    for (var i = 0; i < arr.length; i++) s += (arr[i] - m) * (arr[i] - m);
+    return s / (arr.length - 1);
+  }
+
+  /* Welch t 统计量 + Welch–Satterthwaite 自由度 */
+  function welchT(a, b) {
+    var na = a.length, nb = b.length;
+    if (na < 2 || nb < 2) return null;
+    var ma = mean(a), mb = mean(b), va = variance(a), vb = variance(b);
+    var se2 = va / na + vb / nb;
+    if (se2 <= 0) {
+      /* 两侧序列均无波动：均值不同则 t 趋近无穷大，视为极显著；均值相同则无法计算 */
+      if (ma !== mb) return { t: Infinity, df: na + nb - 2, p: 0 };
+      return null;
+    }
+    var t = (ma - mb) / Math.sqrt(se2);
+    var num = se2 * se2;
+    var den = (va * va) / (na * na * (na - 1)) + (vb * vb) / (nb * nb * (nb - 1));
+    var df = den > 0 ? num / den : na + nb - 2;
+    /* 近似 p 值：用正态近似（|t| 较大时偏保守），标注「近似」 */
+    var z = Math.abs(t);
+    var p = 2 * (1 - normCdf(z));
+    return { t: t, df: df, p: p };
+  }
+  /* 标准正态 CDF（Abramowitz-Stegun 近似） */
+  function normCdf(x) {
+    var sign = x < 0 ? -1 : 1;
+    x = Math.abs(x) / Math.SQRT2;
+    var t = 1 / (1 + 0.3275911 * x);
+    var erf = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return 0.5 * (1 + sign * erf);
+  }
+
+  /* 分组维度对比：keyFn 返回组名；返回 {groups:[{name,n,avg}], maxDiff, maxPair} */
+  function groupCompare(items, keyFn) {
+    var map = {};
+    items.forEach(function (o) {
+      var p = priceOf(o);
+      if (p == null) return;
+      var k = keyFn(o);
+      if (k == null) return;
+      (map[k] = map[k] || []).push(p);
+    });
+    var groups = Object.keys(map).map(function (k) {
+      return { name: k, n: map[k].length, avg: mean(map[k]) };
+    });
+    groups.sort(function (a, b) { return b.avg - a.avg; });
+    var maxDiff = null, maxPair = null;
+    if (groups.length >= 2) {
+      var hi = groups[0], lo = groups[groups.length - 1];
+      maxDiff = hi.avg - lo.avg;
+      maxPair = { high: hi.name, low: lo.name };
+    }
+    return { groups: groups, maxDiff: maxDiff, maxPair: maxPair };
+  }
+
+  /* 主分析入口：对一个商品的观测集做完整比对 */
+  function analyze(productId, productName, platformCode, items) {
+    var r = {
+      product_id: productId, product_name: productName, platform_code: platformCode,
+      total: items.length, valid: 0, userCount: 0
+    };
+    var priced = items.filter(function (o) { return priceOf(o) != null; });
+    r.valid = priced.length;
+    if (!priced.length) { r.conclusion = 'nodata'; return r; }
+
+    /* 按 user_pseudonym 分组 */
+    var byUser = {};
+    priced.forEach(function (o) {
+      var u = o.user_pseudonym || '(未知用户)';
+      (byUser[u] = byUser[u] || []).push(priceOf(o));
+    });
+    var users = Object.keys(byUser).map(function (u) {
+      return { u: u, n: byUser[u].length, avg: mean(byUser[u]), prices: byUser[u] };
+    });
+    r.userCount = users.length;
+    if (users.length < 2) { r.conclusion = 'oneuser'; r.users = users; return r; }
+
+    /* 价差最大的用户对：低价侧 A、高价侧 B */
+    users.sort(function (a, b) { return a.avg - b.avg; });
+    var A = users[0], B = users[users.length - 1];
+    var diff = B.avg - A.avg;
+    var diffPct = A.avg > 0 ? (diff / A.avg) * 100 : 0;
+    r.pair = { A: A, B: B, diff: diff, diffPct: diffPct };
+
+    /* Welch t 检验（A/B 两用户价格序列） */
+    r.smallSample = (A.n < 3 || B.n < 3);
+    r.welch = welchT(A.prices, B.prices);
+
+    /* 分组维度 */
+    r.dims = [
+      { key: 'ip_city', title: '城市（ip_city）', data: groupCompare(priced, function (o) { return o.ip_city || o.shipping_city || null; }) },
+      { key: 'is_new_user', title: '新 / 老用户', data: groupCompare(priced, function (o) {
+          if (o.is_new_user === true || o.is_new_user === 1) return '新用户';
+          if (o.is_new_user === false || o.is_new_user === 0) return '老用户';
+          return null;
+        }) },
+      { key: 'membership_level', title: '会员等级', data: groupCompare(priced, function (o) { return o.membership_level != null && o.membership_level !== '' ? String(o.membership_level) : null; }) },
+      { key: 'peak_hour', title: '高峰时段', data: groupCompare(priced, function (o) {
+          if (o.peak_hour === true || o.peak_hour === 1 || o.peak_hour === 'peak') return '高峰时段';
+          if (o.peak_hour === false || o.peak_hour === 0 || o.peak_hour === 'off') return '非高峰时段';
+          return o.peak_hour != null ? String(o.peak_hour) : null;
+        }) }
+    ];
+
+    /* 结论分级 */
+    if (diffPct >= 5 && !r.smallSample) r.conclusion = 'red';
+    else if (diffPct >= 5 && r.smallSample) r.conclusion = 'yellow';
+    else r.conclusion = 'green';
+    return r;
+  }
+
+  function conclusionBadge(r) {
+    if (r.conclusion === 'red') return '<span class="badge red">🔴 疑似差异定价</span>';
+    if (r.conclusion === 'yellow') return '<span class="badge yellow">🟡 低置信疑似</span>';
+    if (r.conclusion === 'green') return '<span class="badge green">🟢 未见明显差异</span>';
+    if (r.conclusion === 'oneuser') return '<span class="badge gray">仅 1 个用户，无法比对</span>';
+    return '<span class="badge gray">无有效价格数据</span>';
+  }
+  function conclusionText(r) {
+    if (r.conclusion === 'red') return '不同用户均价差 ≥5%，且两侧样本量均 ≥3，差异具备初步参考价值。';
+    if (r.conclusion === 'yellow') return '价差 ≥5%，但至少一侧用户样本 <3 条，小样本，仅供参考。';
+    if (r.conclusion === 'green') return '不同用户间最大均价差 <5%，当前数据未见明显差异定价迹象。';
+    if (r.conclusion === 'oneuser') return '该商品目前只有一个匿名用户的观测，无法做用户间比对。';
+    return '观测中缺少可用价格字段，无法分析。';
+  }
+
+  /* ---------- 结果渲染 ---------- */
+  function renderResult(r) {
+    var html = '<div class="result-card">';
+    html += '<div class="result-head"><div>' +
+      '<div class="pname">' + esc(r.product_name || r.product_id) + '</div>' +
+      '<div class="meta">' + platBadge(r.platform_code) +
+      ' &nbsp;样本数 ' + r.total + '（有效价格 ' + r.valid + '） · 匿名用户数 ' + r.userCount + '</div>' +
+      '</div><div>' + conclusionBadge(r) + '</div></div>';
+
+    if (r.pair) {
+      html += '<div class="kv-grid">' +
+        '<div class="kv"><div class="k">低价侧 A（' + esc(r.pair.A.u) + '）</div><div class="v">' + fmtYuan(r.pair.A.avg) + ' <small>' + r.pair.A.n + ' 条</small></div></div>' +
+        '<div class="kv"><div class="k">高价侧 B（' + esc(r.pair.B.u) + '）</div><div class="v">' + fmtYuan(r.pair.B.avg) + ' <small>' + r.pair.B.n + ' 条</small></div></div>' +
+        '<div class="kv"><div class="k">最大价差</div><div class="v">' + fmtYuan(r.pair.diff) + ' <small>' + r.pair.diffPct.toFixed(2) + '%</small></div></div>' +
+        '<div class="kv"><div class="k">Welch t 检验</div><div class="v">' +
+          (r.welch ? 't=' + (isFinite(r.welch.t) ? r.welch.t.toFixed(2) : '∞') + ' <small>df≈' + r.welch.df.toFixed(1) + '，p≈' + (r.welch.p < 0.0001 ? '<0.0001' : r.welch.p.toFixed(4)) + '（近似）</small>' : '样本不足或两侧价格完全一致') +
+          '</div></div>' +
+        '</div>';
+      if (r.smallSample) html += '<div class="notice">⚠️ 小样本，仅供参考：A/B 至少一侧观测数 &lt;3，t 检验与价差结论置信度低。</div>';
+    }
+
+    /* 分组维度表 */
+    r.dims.forEach(function (d) {
+      if (!d.data.groups.length) return;
+      html += '<div class="dim-block"><div class="dim-title">' + esc(d.title) + '</div>';
+      html += '<table class="dim-table"><thead><tr><th>分组</th><th>样本数</th><th>均价</th></tr></thead><tbody>';
+      d.data.groups.forEach(function (g) {
+        html += '<tr><td>' + esc(g.name) + '</td><td>' + g.n + '</td><td>' + fmtYuan(g.avg) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+      if (d.data.maxDiff != null) {
+        var pct = d.data.groups[d.data.groups.length - 1].avg > 0
+          ? (d.data.maxDiff / d.data.groups[d.data.groups.length - 1].avg * 100) : 0;
+        html += '<div style="font-size:12.5px;margin-top:6px" class="' + (pct >= 5 ? '' : '') + '">' +
+          (pct >= 5
+            ? '<span style="color:#dc2626;font-weight:700">组间最大价差 ' + fmtYuan(d.data.maxDiff) + '（' + pct.toFixed(2) + '%）：' + esc(d.data.maxPair.low) + ' vs ' + esc(d.data.maxPair.high) + '</span>'
+            : '<span style="color:#64748b">组间最大价差 ' + fmtYuan(d.data.maxDiff) + '（' + pct.toFixed(2) + '%）</span>') +
+          '</div>';
+      }
+      html += '</div>';
+    });
+
+    html += '<div class="notice" style="margin-top:16px">📏 口径：价格取展示价（display_price_cents），缺失时回退到手价（actual_pay_price_cents），单位分→元。按匿名假名 user_pseudonym 分组算每用户均价；结论阈值 = 最大用户对价差 ≥5% 且两侧样本均 ≥3。p 值为正态近似，仅供参考。' + esc(conclusionText(r)) + '</div>';
+    html += '</div>';
+    return html;
+  }
+
+  var resultsArea = document.getElementById('resultsArea');
+  var resultsEmpty = document.getElementById('resultsEmpty');
+  function addResult(r) {
+    resultsEmpty.style.display = 'none';
+    var div = document.createElement('div');
+    div.innerHTML = renderResult(r);
+    resultsArea.insertBefore(div.firstChild, resultsArea.children[1] || null);
+  }
+
+  /* ---------- 留存 ---------- */
+  function getSaved() {
+    try { return JSON.parse(localStorage.getItem(SAVED_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function setSaved(arr) {
+    try { localStorage.setItem(SAVED_KEY, JSON.stringify(arr)); } catch (e) { /* 容量满则静默失败 */ }
+    renderSaved();
+  }
+  function maybeSave(r, items) {
+    if (!document.getElementById('saveSwitch').checked) return;
+    var arr = getSaved();
+    arr.unshift({
+      saved_at: new Date().toISOString(),
+      product_id: r.product_id,
+      product_name: r.product_name,
+      count: r.total,
+      analysis_summary: {
+        user_count: r.userCount,
+        diff: r.pair ? r.pair.diff : null,
+        diff_pct: r.pair ? r.pair.diffPct : null,
+        conclusion: r.conclusion
+      },
+      items: items
+    });
+    while (arr.length > SAVED_MAX) arr.pop(); /* 超出上限删最旧 */
+    setSaved(arr);
+  }
+  function renderSaved() {
+    var arr = getSaved();
+    var box = document.getElementById('savedList');
+    if (!arr.length) {
+      box.innerHTML = '<div class="empty" style="padding:24px"><div class="big">🗂️</div><p>暂无留存数据集。开启上方「留存到本地浏览器」开关后再拉取数据即可保存。</p></div>';
+      return;
+    }
+    box.innerHTML = arr.map(function (s, i) {
+      var c = s.analysis_summary || {};
+      var badge = c.conclusion === 'red' ? '<span class="badge red">🔴 疑似差异定价</span>'
+        : c.conclusion === 'yellow' ? '<span class="badge yellow">🟡 低置信疑似</span>'
+        : c.conclusion === 'green' ? '<span class="badge green">🟢 未见明显差异</span>'
+        : '<span class="badge gray">无法比对</span>';
+      var diffTxt = (c.diff != null) ? '价差 ' + fmtYuan(c.diff) + '（' + c.diff_pct.toFixed(2) + '%）' : '—';
+      return '<div class="saved-row"><div class="info">' +
+        '<div><b>' + esc(s.product_name || s.product_id) + '</b> &nbsp;' + badge + '</div>' +
+        '<div class="t">' + fmtTime(s.saved_at) + ' · ' + s.count + ' 条观测 · ' + (c.user_count || 0) + ' 个用户 · ' + diffTxt + '</div>' +
+        '</div><button class="btn danger small" data-del="' + i + '">删除</button></div>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('[data-del]'), function (btn) {
+      btn.addEventListener('click', function () {
+        var a = getSaved();
+        a.splice(Number(btn.getAttribute('data-del')), 1);
+        setSaved(a);
+      });
+    });
+  }
+  document.getElementById('clearSavedBtn').addEventListener('click', function () {
+    if (!getSaved().length) return;
+    if (confirm('确定清空全部已留存数据集？此操作不可恢复。')) setSaved([]);
+  });
+  renderSaved();
+
+  /* ---------- 拉取 + 分析一条商品 ---------- */
+  function fetchAndAnalyze(product, onDone) {
+    return api('/api/pool/observations?product_id=' + encodeURIComponent(product.product_id) + '&limit=500')
+      .then(function (r) {
+        var items = r.items || [];
+        var analysis = analyze(product.product_id, product.product_name, product.platform_code, items);
+        addResult(analysis);
+        maybeSave(analysis, items);
+        if (onDone) onDone(null, analysis);
+        return analysis;
+      })
+      .catch(function (e) {
+        if (onDone) onDone(e, null);
+        else throw e;
+      });
+  }
+
+  /* ---------- 手动搜索 ---------- */
+  var searchBtn = document.getElementById('searchBtn');
+  var searchResult = document.getElementById('searchResult');
+  var searchMsg = document.getElementById('searchMsg');
+
+  function doSearch() {
+    var kw = document.getElementById('kwInput').value.trim();
+    var plat = document.getElementById('platSel').value;
+    searchMsg.innerHTML = '';
+    searchResult.innerHTML = '<div class="loading"><span class="spin">⏳</span>正在搜索商品池…</div>';
+    var url = '/api/pool/products?limit=100';
+    if (kw) url += '&keyword=' + encodeURIComponent(kw);
+    if (plat) url += '&platform_code=' + encodeURIComponent(plat);
+    api(url).then(function (r) {
+      var products = r.products || [];
+      if (!products.length) {
+        searchResult.innerHTML = '<div class="empty" style="padding:24px"><div class="big">🔍</div><p>没有找到观测数 ≥2 的可比对商品' + (kw ? '（关键词「' + esc(kw) + '」）' : '') + '。</p></div>';
+        return;
+      }
+      searchResult.innerHTML = '<table><thead><tr><th>商品</th><th>平台</th><th>观测数</th><th>最近采集</th><th></th></tr></thead><tbody>' +
+        products.map(function (p, i) {
+          return '<tr>' +
+            '<td style="max-width:320px;word-break:break-all">' + esc(p.product_name || p.product_id) + '</td>' +
+            '<td>' + platBadge(p.platform_code) + '</td>' +
+            '<td>' + p.n + '</td>' +
+            '<td>' + fmtTime(p.latest_fetch_ts) + '</td>' +
+            '<td><button class="btn small" data-pull="' + i + '">拉取分析</button></td>' +
+            '</tr>';
+        }).join('') + '</tbody></table>';
+      Array.prototype.forEach.call(searchResult.querySelectorAll('[data-pull]'), function (btn) {
+        btn.addEventListener('click', function () {
+          var p = products[Number(btn.getAttribute('data-pull'))];
+          btn.disabled = true;
+          btn.textContent = '拉取中…';
+          fetchAndAnalyze(p, function (err) {
+            btn.disabled = false;
+            btn.textContent = '拉取分析';
+            if (err) searchMsg.innerHTML = errBox('拉取失败：' + err.message);
+            else searchMsg.innerHTML = '';
+          });
+        });
+      });
+    }).catch(function (e) {
+      searchResult.innerHTML = '';
+      searchMsg.innerHTML = errBox('搜索失败：' + e.message);
+    });
+  }
+  searchBtn.addEventListener('click', doSearch);
+  document.getElementById('kwInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') doSearch();
+  });
+
+  /* ---------- 自动模式 ---------- */
+  var autoBtn = document.getElementById('autoBtn');
+  var autoMsg = document.getElementById('autoMsg');
+  autoBtn.addEventListener('click', function () {
+    autoBtn.disabled = true;
+    autoMsg.innerHTML = '<div class="loading"><span class="spin">⏳</span>正在获取商品列表…</div>';
+    api('/api/pool/products?limit=100').then(function (r) {
+      var products = (r.products || []).slice(0, AUTO_N);
+      if (!products.length) {
+        autoMsg.innerHTML = '<div class="empty" style="padding:24px"><div class="big">🔭</div><p>数据池中暂无可比对商品（需要观测数 ≥2）。</p></div>';
+        autoBtn.disabled = false;
+        return;
+      }
+      var done = 0, failed = 0;
+      autoMsg.innerHTML = '<div class="loading"><span class="spin">⏳</span>自动分析进行中：0 / ' + products.length + '</div>';
+      /* 逐个串行拉取，避免瞬时并发过高 */
+      var chain = Promise.resolve();
+      products.forEach(function (p) {
+        chain = chain.then(function () {
+          return fetchAndAnalyze(p, function (err) {
+            done++;
+            if (err) failed++;
+            autoMsg.innerHTML = '<div class="loading"><span class="spin">⏳</span>自动分析进行中：' + done + ' / ' + products.length + (failed ? '（失败 ' + failed + '）' : '') + '</div>';
+          });
+        });
+      });
+      return chain.then(function () {
+        autoBtn.disabled = false;
+        autoMsg.innerHTML = '<div class="notice">✅ 自动分析完成：共处理 ' + products.length + ' 个商品' + (failed ? '，其中 ' + failed + ' 个拉取失败（可能为鉴权或网络问题）' : '') + '。结果见下方「② 分析结果」。</div>';
+      });
+    }).catch(function (e) {
+      autoBtn.disabled = false;
+      autoMsg.innerHTML = errBox('自动模式失败：' + e.message);
+    });
+  });
+
+})();
+</script>
+</body>
+</html>
