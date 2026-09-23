@@ -1,0 +1,71 @@
+# 阿里云 ECS 单机编排：FastAPI + PostgreSQL 17（内网互通，均不直接对公网）
+# 适用机器：2 vCPU / 2 GiB 内存（已加 swap）—— 资源限额按小内存机器保守设置
+#
+# 用法：
+#   cp .env.example .env   # 填 POSTGRES_PASSWORD / INGEST_API_KEY / ADMIN_KEY
+#   docker compose up -d --build
+
+name: algo-observer
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: algo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: obs
+      # 从 .env 读取；compose 会自动加载项目目录下的 .env 做变量插值
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 .env 中设置 POSTGRES_PASSWORD}
+      POSTGRES_DB: observations
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - internal
+    # 2G 内存机器的保守参数；jit=off 对小查询反而更快
+    command: >
+      -c shared_buffers=96MB
+      -c effective_cache_size=512MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c max_connections=50
+      -c jit=off
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U obs -d observations"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 640M
+    # 故意不映射 ports：只在内网供 web 连接，公网不可达
+
+  web:
+    build: .
+    image: algo-observer:main
+    container_name: algo-observer
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # 覆盖代码里的所有兜底逻辑，直连内网 PG（无需 sslmode）
+      DATABASE_URL: postgresql+psycopg2://obs:${POSTGRES_PASSWORD}@db:5432/observations
+    ports:
+      # 只绑回环，由宿主机 Nginx 对外（安全组只需开 80/443）
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 896M
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  pgdata:
