@@ -1,7 +1,9 @@
 # 部署方案 v2：全栈单机版（阿里云 ECS，不依赖 Supabase / Vercel）
 
-> 目标架构：**FastAPI + PostgreSQL 17 都跑在阿里云 ECS 的 Docker 里，Nginx + HTTPS 绑 `algodiscriminatingcheck.cn`（备案进行中）。**
+> 目标架构：**FastAPI + PostgreSQL 17 都跑在阿里云 ECS 的 Docker 里，Nginx + HTTPS 绑 `algodiscriminatingcheck.cn`。**
 > 数据从零开始，不做任何历史数据迁移。Supabase / Vercel 项目后续停用即可。
+>
+> ✅ **部署状态（2026-10-10 更新）：以上目标已全部落地。** 备案已通过；DNS `@`/`www` A 记录指向 123.56.77.228；Nginx 反向代理 + Let's Encrypt 证书已生效（HTTP 80 自动跳转 443），certbot 自动续期已由 systemd timer 接管。详见 §3、§4 的实际执行记录。
 
 ---
 
@@ -12,7 +14,7 @@
 | ECS | 2 vCPU / 2 GiB 内存（+4 GiB swap）/ 40 GiB ESSD / **1 Mbps 带宽** / 北京 |
 | 系统 | Ubuntu 22.04，Docker CE + compose 插件已装，swap 已加（`free -h` 确认） |
 | 公网 IP | 123.56.77.228 |
-| 域名 | algodiscriminatingcheck.cn，ICP 备案进行中 |
+| 域名 | algodiscriminatingcheck.cn，ICP 备案已通过，@ / www A 记录已指向本机 |
 | 数据 | 全新库，由应用启动时 `create_all` + 轻量迁移自动建表 |
 
 ## 1. 文件清单（本仓库新增，均不含密钥）
@@ -64,37 +66,34 @@ crontab -e
 ./deploy/backup-db.sh   # 立即手动跑一次，验证备份链路
 ```
 
-## 3. 备案前：先用 IP 验证全链路
+## 3. 备案前：先用 IP 验证全链路（已于部署初期完成）
+
+当时安全组临时放行 8000 验证了全链路，验证后已回收。
+
+## 4. 域名 + HTTPS（✅ 2026-10-10 已全部执行完毕）
+
+实际执行记录：
 
 ```bash
-# 安全组临时放行 8000（仅测试用，验证完删掉这条规则）
-curl http://123.56.77.228:8000/health
-curl http://123.56.77.228:8000/        # 浏览器打开看门户
-# 插件上报测试（字段以 /docs 即 Swagger 文档为准）：
-curl -X POST http://123.56.77.228:8000/api/observations \
-  -H "X-API-Key: <你的 INGEST_API_KEY>" -H "Content-Type: application/json" \
-  -d '{...}'
-# 验证完务必回安全组删掉 8000 放行
-```
-
-## 4. 备案通过后：域名 + HTTPS
-
-```bash
-# 4.1 云解析 DNS 控制台添加：
-#   @    A    123.56.77.228
-#   www  A    123.56.77.228   （或 CNAME → algodiscriminatingcheck.cn）
-
-# 4.2 安全组最终形态：只开 22(限你的办公IP) / 80 / 443
-
-# 4.3 Nginx + certbot
-apt update && apt install -y nginx certbot python3-certbot-nginx
+# 4.1 云解析 DNS 控制台：@ / www 均已加 A 记录 → 123.56.77.228 ✅
+# 4.2 安全组最终形态：22(限办公IP) / 80 / 443 ✅（注意：443 必须单独放行，只开 80 的话 HTTPS 会超时）
+apt install -y nginx certbot python3-certbot-nginx
 cp deploy/nginx-algodiscrimination.conf /etc/nginx/sites-available/algodiscrimination
 ln -s /etc/nginx/sites-available/algodiscrimination /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
-certbot --nginx -d algodiscriminatingcheck.cn -d www.algodiscriminatingcheck.cn
-# 浏览器访问 https://algodiscriminatingcheck.cn 验证
+certbot --nginx -d algodiscriminatingcheck.cn -d www.algodiscriminatingcheck.cn \
+  --non-interactive --agree-tos --register-unsafely-without-email --redirect
 ```
+
+执行结果：
+- 证书已签发：`/etc/letsencrypt/live/algodiscriminatingcheck.cn/`（首签有效期至 2027-01-08）；
+- certbot 已写入 systemd timer 自动续期（`systemctl list-timers certbot` 可确认）；
+- 站点配置被 certbot 改写为 443 server 块 + 80 → 443 跳转，生效文件在 `/etc/nginx/sites-enabled/algodiscrimination`；
+- 验证：`curl https://algodiscriminatingcheck.cn/health` 返回 `{"status":"ok","db":"up"}`，`http://` 自动 301 到 `https://`。
+- ⚠️ 注册时未填邮箱（`--register-unsafely-without-email`），续期失败不会有邮件提醒；出问题看 `journalctl -u certbot` 或 §5 的 `certbot renew --dry-run`。
+- ⚠️ 生效中的 nginx 站点配置（含 certbot 改写部分）未纳入版本管理，如需备份：
+  `cp /etc/nginx/sites-enabled/algodiscrimination deploy/nginx-algodiscrimination.conf.effective`（注意与仓库模板区分）。
 
 ## 5. 运维速查
 
@@ -106,6 +105,7 @@ docker compose restart web          # 重启应用
 docker compose ps                   # 状态
 docker stats --no-stream            # 内存占用（确认限额生效）
 certbot renew --dry-run             # 证书自动续期验证
+systemctl list-timers certbot       # 确认续期 timer 存在
 ls -lh /opt/backups/                # 备份文件
 cat /var/log/algo-backup.log        # 备份日志
 ```
