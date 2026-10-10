@@ -118,9 +118,12 @@ cat /var/log/algo-supabase-sync.log # Supabase 每周同步日志
   `deploy/sync-supabase.py`：把 `observations` / `users` 两张表按主键与 Supabase 双向合并为**并集**
   （只插缺失行，绝不覆盖/删除；同主键内容不同记为 conflict 并返回非零退出码，需人工裁决）。
 - 幂等：重复执行不会产生重复数据（增量 = 主键集合差）。
-- 一次性配置：在 `.env` 中补充
-  `SUPABASE_DB_URL=postgresql://postgres:<密码>@db.hcjexutudrzomvmxjegy.supabase.co:5432/postgres`
-  （Supabase 控制台 → Database → Connection string；密码是项目数据库密码，可 Reset）。
+- 一次性配置：在 `.env` 中补充 SUPABASE_DB_URL。⚠️ 直接连接 `db.<project>.supabase.co:5432`
+  只有 IPv6，本机（IPv4-only）须走连接池（IPv4），且密码含 `#` 等字符要转义、`@` 前的用户名要带项目租户标识：
+  `SUPABASE_DB_URL=postgresql://postgres.<project_ref>:<urlencoded密码>@aws-0-<region>.pooler.supabase.com:6543/postgres`
+  本机实际值（密码已转义）形如 `postgresql://postgres.hcjexutudrzomvmxjegy:%23...@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres`；
+  region 可从 `db.<project>.supabase.co` 的 IPv6 地址对照 AWS ip-ranges.json 查出。
+  密码在 Supabase 控制台 → Database → Reset database password。
 - 未配置 SUPABASE_DB_URL 时同步脚本会以退出码 2 拒绝运行（日志见 /var/log/algo-supabase-sync.log）。
 
 ## 6. 已知注意事项
