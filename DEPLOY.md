@@ -45,7 +45,7 @@ cd algo-observer-server
 
 # 2.2 配置密钥
 cp .env.example .env
-nano .env            # 三个值全部换成强随机串；nano 保存: Ctrl+O 回车, Ctrl+X
+nano .env            # POSTGRES_PASSWORD / ADMIN_KEY 换强随机串；INGEST_API_KEY 必须与插件内置值保持一致（勿改，见 .env.example）
 
 # 2.3 构建并启动（首次会拉 postgres:17-alpine 镜像 + pip 依赖，1Mbps 约需几分钟）
 docker compose up -d --build
