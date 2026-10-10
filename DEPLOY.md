@@ -108,12 +108,25 @@ certbot renew --dry-run             # 证书自动续期验证
 systemctl list-timers certbot       # 确认续期 timer 存在
 ls -lh /opt/backups/                # 备份文件
 cat /var/log/algo-backup.log        # 备份日志
+cat /var/log/algo-supabase-sync.log # Supabase 每周同步日志
+./deploy/sync-supabase-run.sh       # 立即手动跑一次 Supabase 并集同步
 ```
+
+## 5.1 Supabase 每周并集同步（2026-10-10 新增）
+
+- 每周日 04:23 由 cron 触发 `deploy/sync-supabase-run.sh`，在一次性容器中运行
+  `deploy/sync-supabase.py`：把 `observations` / `users` 两张表按主键与 Supabase 双向合并为**并集**
+  （只插缺失行，绝不覆盖/删除；同主键内容不同记为 conflict 并返回非零退出码，需人工裁决）。
+- 幂等：重复执行不会产生重复数据（增量 = 主键集合差）。
+- 一次性配置：在 `.env` 中补充
+  `SUPABASE_DB_URL=postgresql://postgres:<密码>@db.hcjexutudrzomvmxjegy.supabase.co:5432/postgres`
+  （Supabase 控制台 → Database → Connection string；密码是项目数据库密码，可 Reset）。
+- 未配置 SUPABASE_DB_URL 时同步脚本会以退出码 2 拒绝运行（日志见 /var/log/algo-supabase-sync.log）。
 
 ## 6. 已知注意事项
 
 1. **1 Mbps 带宽**是最大瓶颈：HTML/JSON 靠 gzip 已优化；`plugin.zip` 57KB 没问题；但**不要在门户放大图/视频**。观测数据本身都是文本，无压力。
 2. **系统重启提示**：机器显示 "System restart required"，建议挑个时间 `reboot`，compose 服务设了 `restart: unless-stopped` 会自动起来。
 3. **CORS 现为 `allow_origins=["*"]`**，上线后建议收紧到自有域名（需改 `api/app/main.py`）。
-4. Supabase 项目 `hcjexutudrzomvmxjegy` 确认不用后可 pause（不删，留作冷备）；Vercel 项目同理可停用，避免双入口混淆。
+4. Supabase 项目 `hcjexudrzomvmxjegy` 保留作为同步对端（每周并集同步见 §5.1），不再作为服务入口；Vercel 项目可停用，避免双入口混淆。
 5. 将来观测量涨到数万行、分析接口变慢时，再考虑升配到 2C4G（PG 参数和限额届时同步上调）。
