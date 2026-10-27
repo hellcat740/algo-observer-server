@@ -118,6 +118,7 @@
         <option value="tmall">天猫</option>
         <option value="jd">京东</option>
         <option value="pinduoduo">拼多多</option>
+        <option value="amazon">亚马逊</option>
       </select>
       <button class="btn" id="searchBtn">搜索商品</button>
     </div>
@@ -128,9 +129,9 @@
 
     <div style="font-size:13.5px;font-weight:700;color:#334155;margin-bottom:10px">自动模式</div>
     <div style="font-size:12.5px;color:#64748b;line-height:1.8;margin-bottom:10px">
-      一键拉取数据池中观测数最多的前 <b>10</b> 个可比对商品（每商品最多 500 条观测），逐个在浏览器本地完成比对分析并汇总结果。
+      一键拉取本机已采集商品中观测数最多的前 <b>10</b> 个商品（每商品最多 500 条远端匹配观测），逐个在浏览器本地完成比对分析并汇总结果。
     </div>
-    <button class="btn" id="autoBtn">⚡ 自动分析所有可比对商品（前 10 个）</button>
+    <button class="btn" id="autoBtn">⚡ 自动分析本机已采集商品（前 10 个）</button>
     <div id="autoMsg"></div>
 
     <div class="switch-row">
@@ -483,7 +484,7 @@
 
   /* ---------- 拉取 + 分析一条商品 ---------- */
   function fetchAndAnalyze(product, onDone) {
-    return api('/api/pool/observations?product_id=' + encodeURIComponent(product.product_id) + '&limit=500')
+    return api('/api/pool/observations?platform_code=' + encodeURIComponent(product.platform_code) + '&product_id=' + encodeURIComponent(product.product_id) + '&limit=500')
       .then(function (r) {
         var items = r.items || [];
         var analysis = analyze(product.product_id, product.product_name, product.platform_code, items);
@@ -507,14 +508,14 @@
     var kw = document.getElementById('kwInput').value.trim();
     var plat = document.getElementById('platSel').value;
     searchMsg.innerHTML = '';
-    searchResult.innerHTML = '<div class="loading"><span class="spin">⏳</span>正在搜索商品池…</div>';
-    var url = '/api/pool/products?limit=100';
+    searchResult.innerHTML = '<div class="loading"><span class="spin">⏳</span>正在搜索本机已采集商品…</div>';
+    var url = '/api/pool/my-products?limit=100';
     if (kw) url += '&keyword=' + encodeURIComponent(kw);
     if (plat) url += '&platform_code=' + encodeURIComponent(plat);
     api(url).then(function (r) {
       var products = r.products || [];
       if (!products.length) {
-        searchResult.innerHTML = '<div class="empty" style="padding:24px"><div class="big">🔍</div><p>没有找到观测数 ≥2 的可比对商品' + (kw ? '（关键词「' + esc(kw) + '」）' : '') + '。</p></div>';
+        searchResult.innerHTML = '<div class="empty" style="padding:24px"><div class="big">🔍</div><p>没有匹配的本机已采集商品' + (kw ? '（关键词「' + esc(kw) + '」）' : '') + '。</p></div>';
         return;
       }
       searchResult.innerHTML = '<table><thead><tr><th>商品</th><th>平台</th><th>观测数</th><th>最近采集</th><th></th></tr></thead><tbody>' +
@@ -556,10 +557,10 @@
   autoBtn.addEventListener('click', function () {
     autoBtn.disabled = true;
     autoMsg.innerHTML = '<div class="loading"><span class="spin">⏳</span>正在获取商品列表…</div>';
-    api('/api/pool/products?limit=100').then(function (r) {
+    api('/api/pool/my-products?limit=100').then(function (r) {
       var products = (r.products || []).slice(0, AUTO_N);
       if (!products.length) {
-        autoMsg.innerHTML = '<div class="empty" style="padding:24px"><div class="big">🔭</div><p>数据池中暂无可比对商品（需要观测数 ≥2）。</p></div>';
+        autoMsg.innerHTML = '<div class="empty" style="padding:24px"><div class="big">🔭</div><p>本机尚未采集商品，请先使用插件浏览并采集商品页。</p></div>';
         autoBtn.disabled = false;
         return;
       }
