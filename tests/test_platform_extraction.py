@@ -17,7 +17,8 @@ JD_FIXTURE = {
     "nodes": {
         ".sku-title-text": "轮趣WHEELTEC 金属舵盘",
         ".product-price--main": "¥2.50",
-        ".top-shop-info": "轮趣官方旗舰店",
+        ".top-shop-info .top-name-tag": "轮趣官方旗舰店",
+        ".top-shop-info": "轮趣官方旗舰店进店逛逛，享更多优惠",
         ".logistics-address-main": "北京海淀区花园路街道",
         ".nickname": "jd_masked",
     },
