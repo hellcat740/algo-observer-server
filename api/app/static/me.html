@@ -68,6 +68,15 @@
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; }
   th { color: #64748b; font-weight: 600; font-size: 12.5px; background: #f8fafc; }
   tr:hover td { background: #f8fafc; }
+  .obs-summary { cursor: pointer; outline: none; }
+  .obs-summary:focus td, .obs-summary.expanded td { background: #eef2ff; }
+  .obs-expand-hint { color: #4f46e5; font-size: 12px; white-space: nowrap; }
+  .obs-detail-row:hover td { background: #fff; }
+  .obs-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 20px; padding: 8px 4px; }
+  .obs-detail-item { min-width: 0; }
+  .obs-detail-item dt { color: #64748b; font-size: 12px; margin-bottom: 3px; }
+  .obs-detail-item dd { margin: 0; color: #1e293b; overflow-wrap: anywhere; line-height: 1.6; }
+  .obs-detail-item a { color: #4f46e5; }
   .plat { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
   .taobao { background: #fff7ed; color: #c2410c; }
   .tmall { background: #fef2f2; color: #b91c1c; }
@@ -271,14 +280,64 @@
       '<div class="notice" style="grid-column:1/-1">统计加载失败：' + e.message + '（服务可能正在冷启动，请刷新重试）</div>';
   });
 
-  /* ---------- 观测记录分页 ---------- */
+  /* ---------- 观测记录分页与行内详情 ---------- */
   var page = 1, pageSize = 20, total = 0;
   var PLAT = { taobao: '淘宝', tmall: '天猫', jd: '京东', pinduoduo: '拼多多', yangkeduo: '拼多多', amazon: '亚马逊' };
 
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
   function fmtCents(c, currency) { return c == null ? '—' : (currency === 'USD' ? '$' : '¥') + (c / 100).toFixed(2); }
+  function fmtBool(value) { return value == null ? '—' : (value ? '是' : '否'); }
   function fmtTime(iso) {
+    if (!iso) return '—';
     var d = new Date(iso);
     return isNaN(d) ? iso : d.toLocaleString('zh-CN', { hour12: false });
+  }
+  function detailField(label, value) {
+    return '<div class="obs-detail-item"><dt>' + esc(label) + '</dt><dd>' + esc(value == null || value === '' ? '—' : value) + '</dd></div>';
+  }
+  function productLink(o) {
+    if (!o.product_url) return '—';
+    try {
+      var url = new URL(o.product_url);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return esc(o.product_url);
+      return '<a href="' + esc(url.href) + '" target="_blank" rel="noopener noreferrer">打开商品页</a>';
+    } catch (e) { return esc(o.product_url); }
+  }
+  function renderObservationDetails(o) {
+    var fields = [
+      ['观测 ID', o.observation_id], ['平台', PLAT[o.platform_code] || o.platform_code],
+      ['商品 ID', o.product_id], ['完整商品名', o.product_name], ['卖家 ID', o.seller_id],
+      ['展示价', fmtCents(o.display_price_cents, o.currency)],
+      ['到手价', fmtCents(o.actual_pay_price_cents, o.currency)],
+      ['优惠金额', fmtCents(o.discount_coupon_amount_cents, o.currency)],
+      ['促销类型', o.promo_type], ['促销说明', o.promo_label], ['币种', o.currency],
+      ['登录状态', fmtBool(o.is_login)], ['会员等级', o.membership_level],
+      ['新用户', fmtBool(o.is_new_user)], ['注册天数', o.register_days],
+      ['IP 城市', o.ip_city], ['配送城市', o.shipping_city], ['库存提示', o.stock_hint],
+      ['设备平台', o.platform], ['浏览器语言', o.language], ['设备内存（GB）', o.device_memory],
+      ['CPU 线程数', o.hardware_concurrency], ['屏幕分辨率', o.screen_resolution],
+      ['设备价格评分', o.device_price_score_estimate], ['高峰时段', fmtBool(o.peak_hour)],
+      ['采集时间', fmtTime(o.fetch_ts)], ['入库时间', fmtTime(o.created_at)],
+      ['数据来源', o.origin], ['同步时间', fmtTime(o.synced_at)],
+      ['用户代理', o.user_agent], ['截图路径', o.screenshot_path],
+      ['价格原始文本', o.dom_price_text], ['DOM 快照路径', o.dom_snapshot_path],
+      ['采集代码版本', o.source_code_version], ['关联任务 ID', o.task_id]
+    ];
+    return '<dl class="obs-detail-grid">' + fields.map(function (field) {
+      return detailField(field[0], field[1]);
+    }).join('') + '<div class="obs-detail-item"><dt>商品链接</dt><dd>' + productLink(o) + '</dd></div></dl>';
+  }
+  function toggleObservation(index) {
+    var summary = document.getElementById('obs-row-' + index);
+    var detail = document.getElementById('obs-detail-' + index);
+    var expanded = summary.getAttribute('aria-expanded') === 'true';
+    summary.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+    summary.classList.toggle('expanded', !expanded);
+    detail.hidden = expanded;
   }
 
   function loadPage() {
@@ -295,20 +354,29 @@
         document.getElementById('emptyState').style.display = 'block';
         return;
       }
-      body.innerHTML = r.items.map(function (o) {
+      body.innerHTML = r.items.map(function (o, i) {
         var p = PLAT[o.platform_code] || o.platform_code;
         var name = o.product_name ? String(o.product_name).slice(0, 24) : o.product_id;
-        return '<tr>' +
-          '<td><span class="plat ' + o.platform_code + '">' + p + '</span></td>' +
-          '<td title="' + (o.product_url || '') + '">' + name + '</td>' +
+        return '<tr id="obs-row-' + i + '" class="obs-summary" data-obs-index="' + i + '" role="button" tabindex="0" aria-expanded="false" aria-controls="obs-detail-' + i + '">' +
+          '<td><span class="plat ' + esc(o.platform_code) + '">' + esc(p) + '</span></td>' +
+          '<td title="' + esc(o.product_url || '') + '">' + esc(name) + '<span class="obs-expand-hint"> 详情 ▾</span></td>' +
           '<td>' + fmtCents(o.display_price_cents, o.currency) + '</td>' +
           '<td>' + fmtCents(o.actual_pay_price_cents, o.currency) + '</td>' +
-          '<td>' + fmtTime(o.fetch_ts || o.created_at) + '</td>' +
-          '</tr>';
+          '<td>' + esc(fmtTime(o.fetch_ts || o.created_at)) + '</td>' +
+          '</tr><tr id="obs-detail-' + i + '" class="obs-detail-row" hidden><td colspan="5">' + renderObservationDetails(o) + '</td></tr>';
       }).join('');
+      Array.prototype.forEach.call(body.querySelectorAll('[data-obs-index]'), function (row) {
+        row.addEventListener('click', function () { toggleObservation(Number(row.getAttribute('data-obs-index'))); });
+        row.addEventListener('keydown', function (event) {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleObservation(Number(row.getAttribute('data-obs-index')));
+          }
+        });
+      });
     }).catch(function (e) {
       document.getElementById('obsBody').innerHTML =
-        '<tr><td colspan="5" style="text-align:center;color:#ef4444">加载失败：' + e.message + '</td></tr>';
+        '<tr><td colspan="5" style="text-align:center;color:#ef4444">加载失败：' + esc(e.message) + '</td></tr>';
     });
   }
   document.getElementById('prevBtn').addEventListener('click', function () { if (page > 1) { page--; loadPage(); } });
