@@ -263,6 +263,50 @@ def pool_pull(
     }
 
 
+@router.get("/my-products")
+def my_pool_products(
+    keyword: Optional[str] = Query(default=None, description="本机商品 ID / 商品名关键词"),
+    platform_code: Optional[str] = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=POOL_PRODUCTS_MAX),
+    user_id: str = Depends(require_user),
+    db=Depends(get_db),
+):
+    """仅发现当前匿名身份采集过的商品，供看板选择远端比对数据。"""
+    from sqlalchemy import func
+
+    query = (
+        db.query(
+            Observation.product_id,
+            Observation.product_name,
+            Observation.platform_code,
+            func.count().label("n"),
+            func.max(Observation.fetch_ts).label("latest_fetch_ts"),
+        )
+        .filter(Observation.user_ref == user_id)
+        .group_by(Observation.product_id, Observation.product_name, Observation.platform_code)
+    )
+    if keyword:
+        like = f"%{keyword}%"
+        query = query.filter(
+            (Observation.product_id.contains(keyword)) | (Observation.product_name.like(like))
+        )
+    if platform_code:
+        query = query.filter(Observation.platform_code == platform_code)
+    rows = query.order_by(func.count().desc()).limit(limit).all()
+    return {
+        "products": [
+            {
+                "product_id": r.product_id,
+                "product_name": r.product_name,
+                "platform_code": r.platform_code,
+                "n": int(r.n),
+                "latest_fetch_ts": r.latest_fetch_ts.isoformat() if r.latest_fetch_ts else None,
+            }
+            for r in rows
+        ]
+    }
+
+
 @router.get("/products")
 def pool_products(
     keyword: Optional[str] = Query(default=None, description="商品 ID / 商品名关键词"),
