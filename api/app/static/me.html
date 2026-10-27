@@ -273,9 +273,9 @@
 
   /* ---------- 观测记录分页 ---------- */
   var page = 1, pageSize = 20, total = 0;
-  var PLAT = { taobao: '淘宝', tmall: '天猫', jd: '京东', pinduoduo: '拼多多', yangkeduo: '拼多多' };
+  var PLAT = { taobao: '淘宝', tmall: '天猫', jd: '京东', pinduoduo: '拼多多', yangkeduo: '拼多多', amazon: '亚马逊' };
 
-  function fmtCents(c) { return c == null ? '—' : '¥' + (c / 100).toFixed(2); }
+  function fmtCents(c, currency) { return c == null ? '—' : (currency === 'USD' ? '$' : '¥') + (c / 100).toFixed(2); }
   function fmtTime(iso) {
     var d = new Date(iso);
     return isNaN(d) ? iso : d.toLocaleString('zh-CN', { hour12: false });
@@ -301,8 +301,8 @@
         return '<tr>' +
           '<td><span class="plat ' + o.platform_code + '">' + p + '</span></td>' +
           '<td title="' + (o.product_url || '') + '">' + name + '</td>' +
-          '<td>' + fmtCents(o.display_price_cents) + '</td>' +
-          '<td>' + fmtCents(o.actual_pay_price_cents) + '</td>' +
+          '<td>' + fmtCents(o.display_price_cents, o.currency) + '</td>' +
+          '<td>' + fmtCents(o.actual_pay_price_cents, o.currency) + '</td>' +
           '<td>' + fmtTime(o.fetch_ts || o.created_at) + '</td>' +
           '</tr>';
       }).join('');

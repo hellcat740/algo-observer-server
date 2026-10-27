@@ -12,7 +12,7 @@ from .schemas import ObservationIn
 
 # 平台编码白名单（与插件 src/platforms.ts 对齐，外加几个常见平台预留）
 ALLOWED_PLATFORMS = {
-    "meituan", "taobao", "tmall", "jd", "pinduoduo",
+    "meituan", "taobao", "tmall", "jd", "pinduoduo", "amazon",
     "yangkeduo", "eleme", "dianping", "ctrip", "didi",
 }
 
