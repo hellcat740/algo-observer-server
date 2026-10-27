@@ -26,3 +26,4 @@ Thumbs.db
 # 本地工具与备份（不随仓库发布）
 _tools/
 _旧版备份/
+.worktrees/
