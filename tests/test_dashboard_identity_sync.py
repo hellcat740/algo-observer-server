@@ -1,8 +1,8 @@
 """看板身份自动同步的回归测试。
 
 插件身份保存在 chrome.storage.local，看板身份保存在站点 localStorage。
-当站点身份缺失时，插件内容脚本应在看板脚本运行前补齐身份并刷新一次，
-避免普通进入 /me 时生成新身份而显示空数据。
+每次打开或刷新看板时都应以插件身份为准；身份不一致时更新站点身份并刷新一次，
+避免普通进入 /me 时沿用旧身份或生成新身份而显示空数据。
 """
 import json
 import os
@@ -82,9 +82,9 @@ setImmediate(() => {
         result = self.run_sync(None)
         self.assertEqual(result, {"uid": PLUGIN_UID, "reloads": 1})
 
-    def test_existing_site_identity_is_not_overwritten(self):
+    def test_refresh_replaces_stale_site_identity_with_plugin_identity(self):
         result = self.run_sync(OTHER_UID)
-        self.assertEqual(result, {"uid": OTHER_UID, "reloads": 0})
+        self.assertEqual(result, {"uid": PLUGIN_UID, "reloads": 1})
 
     def test_matching_identity_does_not_reload(self):
         result = self.run_sync(PLUGIN_UID)
