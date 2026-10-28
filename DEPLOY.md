@@ -136,7 +136,9 @@ cat /var/log/algo-supabase-sync.log # Supabase 每周同步日志
 
 ## 7. 部署记录
 
-- **2026-10-28（b7aaedd，当前线上版本）**：币种感知比价——每日缓存 USD→CNY 汇率、跨币种价格统一折算
+- **2026-10-28（599b8ff，当前线上版本）**：下载页显示当前插件版本 v1.1.0（dbd6160）+ 部署记录/脚本权限位。
+  56/56 测试通过。回退点 `rollback-20261028-b7aaedd`。
+- 2026-10-28（b7aaedd）：币种感知比价——每日缓存 USD→CNY 汇率、跨币种价格统一折算
   CNY 后再比对；插件升级 1.1.0。55/55 测试通过。回退点 `rollback-20261028-6394879`。
 - 2026-10-28（6394879）：个人观测详情 + 比对范围限定。回退点 `rollback-20261028-2984a79`。
 - 测试运行方式（服务器本地，一次性容器）：`docker run --rm -v /opt/algo-observer-server:/repo:ro -w /repo algo-observer:testtools python -m unittest discover -s tests`
