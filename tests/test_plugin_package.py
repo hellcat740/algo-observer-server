@@ -45,8 +45,8 @@ class PluginPackageTest(unittest.TestCase):
     def test_zip_complete(self):
         self.assertTrue(REQUIRED_FILES.issubset(set(self.zf.namelist())))
 
-    def test_version_is_1_0_0(self):
-        self.assertEqual(self.manifest["version"], "1.0.0")
+    def test_version_is_1_1_0(self):
+        self.assertEqual(self.manifest["version"], "1.1.0")
 
     def test_host_permissions_point_to_current_server(self):
         self.assertIn(f"{CURRENT_ORIGIN}/*", self.manifest["host_permissions"])
