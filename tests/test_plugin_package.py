@@ -48,6 +48,10 @@ class PluginPackageTest(unittest.TestCase):
     def test_version_is_1_1_0(self):
         self.assertEqual(self.manifest["version"], "1.1.0")
 
+    def test_download_page_displays_package_version(self):
+        download = (ZIP_PATH.parent / "download.html").read_text(encoding="utf-8")
+        self.assertIn(f'id="verText">版本 v{self.manifest["version"]} ·', download)
+
     def test_host_permissions_point_to_current_server(self):
         self.assertIn(f"{CURRENT_ORIGIN}/*", self.manifest["host_permissions"])
 
