@@ -19,6 +19,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -135,6 +136,20 @@ class User(Base):
     first_seen_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
     last_seen_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
     observation_count = Column(Integer, nullable=False, default=0)
+
+
+class ExchangeRate(Base):
+    """服务器每日汇率缓存；金额仍按观测原币保存。"""
+
+    __tablename__ = "exchange_rates"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    base = Column(String(3), nullable=False)
+    quote = Column(String(3), nullable=False)
+    rate = Column(Float, nullable=False)
+    rate_date = Column(String(10), nullable=False)
+    source = Column(String(100), nullable=False)
+    fetched_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    __table_args__ = (UniqueConstraint("base", "quote", name="uq_exchange_rate_pair"),)
 
 
 class Task(Base):
