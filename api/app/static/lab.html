@@ -224,7 +224,22 @@
      本地分析逻辑（纯 JS，无任何库）
      ================================================================ */
 
-  /* 价格基准：优先 display_price_cents，缺失回退 actual_pay_price_cents，返回「元」 */
+  /* 原币入库不变，仅复制观测用于本次人民币比价。 */
+  function normalizeComparisonItems(items, exchangeRate) {
+    return items.map(function (o) {
+      var copy = Object.assign({}, o);
+      var currency = String(o.currency || 'CNY').toUpperCase();
+      if (currency !== 'CNY' && currency !== 'USD') throw new Error('暂不支持的币种：' + currency);
+      var rate = currency === 'USD' ? Number(exchangeRate && exchangeRate.rate) : 1;
+      if (!isFinite(rate) || rate <= 0) throw new Error('汇率不可用，已停止混币比价');
+      ['display_price_cents', 'actual_pay_price_cents', 'discount_coupon_amount_cents'].forEach(function (key) {
+        if (copy[key] != null) copy[key] = Math.round(Number(copy[key]) * rate);
+      });
+      return copy;
+    });
+  }
+
+  /* 价格基准：优先 display_price_cents，缺失回退 actual_pay_price_cents，返回人民币「元」 */
   function priceOf(o) {
     var c = (o.display_price_cents != null) ? o.display_price_cents : o.actual_pay_price_cents;
     return (c == null || isNaN(c)) ? null : c / 100;
@@ -408,7 +423,8 @@
       html += '</div>';
     });
 
-    html += '<div class="notice" style="margin-top:16px">📏 口径：价格取展示价（display_price_cents），缺失时回退到手价（actual_pay_price_cents），单位分→元。按匿名假名 user_pseudonym 分组算每用户均价；结论阈值 = 最大用户对价差 ≥5% 且两侧样本均 ≥3。p 值为正态近似，仅供参考。' + esc(conclusionText(r)) + '</div>';
+    var fxText = r.exchangeRate ? ' 美元金额按 1 USD = ' + Number(r.exchangeRate.rate).toFixed(4) + ' CNY 折算；汇率日期 ' + esc(r.exchangeRate.rate_date) + '，来源 ' + esc(r.exchangeRate.source) + (r.exchangeRate.stale ? '（最近成功汇率）' : '') + '。' : '';
+    html += '<div class="notice" style="margin-top:16px">📏 口径：价格取展示价（display_price_cents），缺失时回退到手价（actual_pay_price_cents），统一折算为人民币。' + fxText + '按匿名假名 user_pseudonym 分组算每用户均价；结论阈值 = 最大用户对价差 ≥5% 且两侧样本均 ≥3。p 值为正态近似，仅供参考。' + esc(conclusionText(r)) + '</div>';
     html += '</div>';
     return html;
   }
@@ -487,9 +503,18 @@
     return api('/api/pool/observations?platform_code=' + encodeURIComponent(product.platform_code) + '&product_id=' + encodeURIComponent(product.product_id) + '&limit=500')
       .then(function (r) {
         var items = r.items || [];
-        var analysis = analyze(product.product_id, product.product_name, product.platform_code, items);
-        addResult(analysis);
-        maybeSave(analysis, items);
+        var needsUsd = items.some(function (o) { return String(o.currency || 'CNY').toUpperCase() === 'USD'; });
+        var rateRequest = needsUsd ? api('/api/exchange-rates/latest?base=USD&quote=CNY') : Promise.resolve(null);
+        return rateRequest.then(function (exchangeRate) {
+          var normalized = normalizeComparisonItems(items, exchangeRate);
+          var analysis = analyze(product.product_id, product.product_name, product.platform_code, normalized);
+          analysis.exchangeRate = exchangeRate;
+          addResult(analysis);
+          maybeSave(analysis, items);
+          return analysis;
+        });
+      })
+      .then(function (analysis) {
         if (onDone) onDone(null, analysis);
         return analysis;
       })
