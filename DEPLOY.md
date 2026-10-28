@@ -133,3 +133,11 @@ cat /var/log/algo-supabase-sync.log # Supabase 每周同步日志
 3. **CORS 现为 `allow_origins=["*"]`**，上线后建议收紧到自有域名（需改 `api/app/main.py`）。
 4. Supabase 项目 `hcjexudrzomvmxjegy` 保留作为同步对端（每周并集同步见 §5.1），不再作为服务入口；Vercel 项目可停用，避免双入口混淆。
 5. 将来观测量涨到数万行、分析接口变慢时，再考虑升配到 2C4G（PG 参数和限额届时同步上调）。
+
+## 7. 部署记录
+
+- **2026-10-28（b7aaedd，当前线上版本）**：币种感知比价——每日缓存 USD→CNY 汇率、跨币种价格统一折算
+  CNY 后再比对；插件升级 1.1.0。55/55 测试通过。回退点 `rollback-20261028-6394879`。
+- 2026-10-28（6394879）：个人观测详情 + 比对范围限定。回退点 `rollback-20261028-2984a79`。
+- 测试运行方式（服务器本地，一次性容器）：`docker run --rm -v /opt/algo-observer-server:/repo:ro -w /repo algo-observer:testtools python -m unittest discover -s tests`
+  （`algo-observer:testtools` = main 镜像 + nodejs + httpx，走阿里云镜像源构建）。
