@@ -5,10 +5,11 @@ FastAPI 入口：路由注册、启动建表、静态页面托管。
     uvicorn app.main:app --host 0.0.0.0 --port 8000
 """
 from datetime import datetime, timedelta, timezone
+import os
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy import func, text
@@ -16,7 +17,8 @@ from sqlalchemy.orm import Session
 
 from .admin_api import router as admin_router
 from .analysis_api import router as analysis_router
-from .auth import check_admin_key, require_api_key, require_ingest_key, require_ingest_or_admin
+from .auth import check_admin_key, require_api_key, require_ingest_key, require_ingest_or_admin, require_user
+from .exchange_rates import ExchangeRateUnavailable, latest_rate, refresh_rate, start_rate_refresh
 from .my_api import router as my_router
 from .pool_api import router as pool_router
 from .sync_api import router as sync_router
@@ -80,6 +82,7 @@ def init_db():
     # 数据通路：配置 SYNC_SERVER_URL 后，后台线程自动把本机数据上行到公网服务器
     from .sync_api import start_auto_sync
     start_auto_sync()
+    start_rate_refresh()
 
 
 def _migrate_lightweight():
@@ -122,6 +125,27 @@ def health(db: Session = Depends(get_db)):
     except Exception:
         db_status = "down"
     return {"status": "ok", "db": db_status}
+
+
+@app.get("/api/exchange-rates/latest", dependencies=[Depends(require_user)])
+def exchange_rate_latest(base: str = "USD", quote: str = "CNY", db: Session = Depends(get_db)):
+    try:
+        return latest_rate(db, base, quote)
+    except ExchangeRateUnavailable as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+
+
+@app.get("/api/exchange-rates/refresh", include_in_schema=False)
+def exchange_rate_refresh(authorization: Optional[str] = Header(default=None),
+        x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"), db: Session = Depends(get_db)):
+    cron_secret = os.environ.get("CRON_SECRET", "")
+    cron_ok = bool(cron_secret) and authorization == "Bearer " + cron_secret
+    if not cron_ok and not check_admin_key(x_api_key):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="需要定时任务或管理员凭证")
+    try:
+        return refresh_rate(db)
+    except ExchangeRateUnavailable as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
 
 
 class AdminLoginIn(BaseModel):

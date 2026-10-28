@@ -1,6 +1,7 @@
 {
   "rewrites": [{ "source": "/(.*)", "destination": "/api/index?__path=/$1" }],
   "regions": ["hkg1"],
+  "crons": [{ "path": "/api/exchange-rates/refresh", "schedule": "17 1 * * *" }],
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
