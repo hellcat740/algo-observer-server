@@ -1,3 +1,7 @@
+import base64
+import os
+import shutil
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -8,6 +12,13 @@ sys.path.insert(0, str(API_DIR))
 
 from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app  # noqa: E402
+
+
+NODE = shutil.which("node")
+if not NODE and os.environ.get("APPDATA"):
+    managed_node = Path(os.environ["APPDATA"]) / "kimi-desktop" / "daimon-share" / "daimon" / "command-process-owner" / "bin" / "node"
+    if managed_node.exists():
+        NODE = str(managed_node)
 
 
 class SpacePageTest(unittest.TestCase):
@@ -41,6 +52,47 @@ class SpacePageTest(unittest.TestCase):
         index = (API_DIR / "app" / "static" / "index.html").read_text(encoding="utf-8")
         self.assertIn('href="/space"', index)
         self.assertIn("三维数据空间", index)
+
+    def test_scene_uses_required_three_primitives_and_interactions(self):
+        source = (API_DIR / "app" / "static" / "js" / "space.js").read_text(encoding="utf-8")
+        for token in (
+            "THREE.Points", "THREE.BufferGeometry", "THREE.LineSegments",
+            "THREE.Raycaster", "OrbitControls", "normalized_price_cents",
+            "PRICE_GAP", "toCSV", "play", "window.innerWidth",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, source)
+        subprocess.run([NODE, "--check", str(API_DIR / "app" / "static" / "js" / "space.js")], check=True)
+
+    def test_pure_coordinate_filter_and_csv_behavior(self):
+        core = (API_DIR / "app" / "static" / "js" / "space-core.js").read_bytes()
+        module = base64.b64encode(core).decode("ascii")
+        script = """
+import { businessCoordinates, featureProjection, filterPoints, toCSV } from 'data:text/javascript;base64,%s';
+const points = [
+ {observation_id:'a',fetch_ts:'2026-10-29T00:00:00Z',user_pseudonym:'u_a',product_key:'p1',product_id:'P1',product_name:'手机, "Pro"',category_l1:'手机数码',platform_code:'jd',currency:'CNY',basis_price_cents:1000,normalized_price_cents:1000,price_deviation:-0.1,promo_type:'none',promo_label:'',ip_city:'上海',price_gap_direction:'LOW'},
+ {observation_id:'b',fetch_ts:'2026-10-29T01:00:00Z',user_pseudonym:'u_b',product_key:'p1',product_id:'P1',product_name:'手机',category_l1:'手机数码',platform_code:'jd',currency:'CNY',basis_price_cents:1200,normalized_price_cents:1200,price_deviation:0.1,promo_type:'coupon',promo_label:'券',ip_city:'北京',price_gap_direction:'HIGH',price_gap_suspected:true}
+];
+const coords = businessCoordinates(points);
+if (coords.length !== 2 || coords[0].position[0] !== -50 || coords[1].position[0] !== 50) throw new Error('business coordinates');
+if (coords[0].position[2] >= 0 || coords[1].position[2] <= 0) throw new Error('price deviation');
+const projection = featureProjection(points[0]);
+if (projection.length !== 3 || projection.some(value => !Number.isFinite(value))) throw new Error('projection');
+if (JSON.stringify(projection) !== JSON.stringify(featureProjection(points[0]))) throw new Error('not deterministic');
+if (filterPoints(points, {platform:'jd',promo:'yes'}).length !== 1) throw new Error('promo filter');
+if (filterPoints(points, {search:'pro',city:'上海'}).length !== 1) throw new Error('search filter');
+if (filterPoints(points, {start:'2026-10-29T00:30:00Z'}).length !== 1) throw new Error('time filter');
+const csv = toCSV(points);
+if (!csv.includes('u_a') || csv.includes('user_ref') || csv.includes('user_agent')) throw new Error('CSV privacy');
+if (!csv.includes('""Pro""')) throw new Error('CSV escaping');
+console.log('space core behavior ok');
+""" % module
+        result = subprocess.run(
+            [NODE, "--input-type=module"],
+            input=script, capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("space core behavior ok", result.stdout)
 
 
 if __name__ == "__main__":
