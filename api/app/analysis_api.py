@@ -15,6 +15,9 @@ from analysis.discrimination import analyze_platform, analyze_product
 from .database import engine, get_db
 from .models import Observation
 from .auth import require_api_key
+from .exchange_rates import ExchangeRateUnavailable, latest_rate
+from .product_categories import cache_key, classify_products
+from .visualization import build_visualization_points
 
 router = APIRouter(
     prefix="/api/analysis",
@@ -103,3 +106,78 @@ async def platform_analysis():
     """平台级批量分析（每商品自动选最大价差用户对）+ 跨商品复现检验。
     全置信 flag ≥2 个商品复现 → platform_suspected；低置信疑似单独计数。"""
     return await run_in_threadpool(analyze_platform, engine)
+
+
+def _visualization_points_response(
+    db,
+    platform_code: Optional[str],
+    product_id: Optional[str],
+    currency: Optional[str],
+    category_l1: Optional[str],
+):
+    query = db.query(Observation)
+    if platform_code:
+        query = query.filter(Observation.platform_code == platform_code)
+    if product_id:
+        query = query.filter(Observation.product_id == product_id)
+    if currency:
+        query = query.filter(Observation.currency == currency.upper())
+    observations = query.order_by(Observation.fetch_ts, Observation.observation_id).all()
+    classifications, warnings = classify_products(db, observations)
+
+    usd_rate = None
+    if any(str(obs.currency or "").upper() == "USD" for obs in observations):
+        try:
+            usd_rate = latest_rate(db, "USD", "CNY")
+        except ExchangeRateUnavailable:
+            warnings.append("USD/CNY 汇率不可用，美元点仅保留原始价格，不参与折算价比较")
+
+    points = build_visualization_points(observations, classifications, usd_rate)
+    if category_l1:
+        filtered = [
+            (obs, point) for obs, point in zip(observations, points)
+            if point["category_l1"] == category_l1
+        ]
+    else:
+        filtered = list(zip(observations, points))
+    used_keys = []
+    for obs, _ in filtered:
+        key = cache_key(obs)
+        if key not in used_keys:
+            used_keys.append(key)
+    response_classifications = [classifications[key] for key in used_keys]
+    response_points = [point for _, point in filtered]
+    return {
+        "points": response_points,
+        "classifications": response_classifications,
+        "meta": {
+            "total": len(response_points),
+            "normalized_total": sum(
+                point["normalized_price_cents"] is not None for point in response_points
+            ),
+            "review_total": sum(
+                item["needs_human_review"] for item in response_classifications
+            ),
+            "exchange_rate": (
+                usd_rate
+                if any(point["currency"] == "USD" for point in response_points)
+                else None
+            ),
+            "warnings": warnings,
+        },
+    }
+
+
+@router.get("/visualization-points")
+async def visualization_points(
+    platform_code: Optional[str] = Query(default=None),
+    product_id: Optional[str] = Query(default=None),
+    currency: Optional[str] = Query(default=None),
+    category_l1: Optional[str] = Query(default=None),
+    db=Depends(get_db),
+):
+    """商品级分类与逐观测可视化点；原始匿名 UUID 不进入响应。"""
+    return await run_in_threadpool(
+        _visualization_points_response,
+        db, platform_code, product_id, currency, category_l1,
+    )
