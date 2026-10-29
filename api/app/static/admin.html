@@ -184,7 +184,7 @@
       <thead>
         <tr>
           <th>采集时间(UTC)</th><th>平台</th><th>商品名</th><th>商品ID</th>
-          <th>标价(元)</th><th>到手价(元)</th><th>城市</th><th>登录态</th><th>新用户</th><th>操作</th>
+          <th>标价</th><th>到手价</th><th>城市</th><th>登录态</th><th>新用户</th><th>操作</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -304,8 +304,8 @@ async function loadList() {
           <td><span class="chip">${esc(o.platform_code)}</span></td>
           <td class="ellipsis" title="${esc(o.product_name)}">${esc(o.product_name)}</td>
           <td class="ellipsis muted">${esc(o.product_id)}</td>
-          <td>${fen2yuan(o.display_price_cents)}</td>
-          <td>${o.actual_pay_price_cents == null ? '—' : fen2yuan(o.actual_pay_price_cents)}</td>
+          <td>${fen2yuan(o.display_price_cents, o.currency)}</td>
+          <td>${o.actual_pay_price_cents == null ? '—' : fen2yuan(o.actual_pay_price_cents, o.currency)}</td>
           <td>${esc(o.ip_city || '—')}</td>
           <td>${boolChip(o.is_login)}</td>
           <td>${boolChip(o.is_new_user)}</td>
@@ -342,7 +342,7 @@ async function showDetail(id) {
     const priceFields = ['display_price_cents', 'actual_pay_price_cents', 'discount_coupon_amount_cents'];
     $('detailKv').innerHTML = Object.keys(labels).map(k => {
       let v = o[k];
-      if (priceFields.includes(k) && v != null) v = fen2yuan(v) + `（${v} 分）`;
+      if (priceFields.includes(k) && v != null) v = fen2yuan(v, o.currency) + `（${v} 分）`;
       if (v == null) v = '<span class="muted">—</span>';
       else if (typeof v === 'boolean') v = v ? '是' : '否';
       else v = esc(String(v));
@@ -397,7 +397,7 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
-function fen2yuan(fen) { return '¥' + (fen / 100).toFixed(2); }
+function fen2yuan(fen, currency) { return (currency === 'USD' ? '$' : '¥') + (fen / 100).toFixed(2); }
 function fmtTs(ts) {
   const d = new Date(ts);
   return d.toISOString().replace('T', ' ').slice(0, 19);
