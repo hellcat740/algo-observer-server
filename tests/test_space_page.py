@@ -94,6 +94,23 @@ console.log('space core behavior ok');
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("space core behavior ok", result.stdout)
 
+    def test_mock_statistics_follow_the_sample_size_rule(self):
+        source = (API_DIR / "app" / "static" / "js" / "space-mock.js").read_bytes()
+        module = base64.b64encode(source).decode("ascii")
+        script = """
+import { createMockData } from 'data:text/javascript;base64,%s';
+const data = createMockData();
+if (data.statistics.some(stat => stat.n_a >= 3 && stat.n_b >= 3 && stat.status !== 'TESTS_AVAILABLE')) throw new Error('mock sample status');
+if (data.points.some(point => point.statistical_status !== 'TESTS_AVAILABLE')) throw new Error('mock point status');
+console.log('mock statistics ok');
+""" % module
+        result = subprocess.run(
+            [NODE, "--input-type=module"], input=script,
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("mock statistics ok", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

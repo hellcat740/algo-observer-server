@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from itertools import combinations
+import math
 from statistics import median
+import warnings
 
 from scipy import stats
 
@@ -47,6 +49,10 @@ def compute_price_statistics(points):
         key = (point["product_key"], point["user_pseudonym"])
         groups.setdefault(key, []).append(point)
 
+    def finite_float(value):
+        number = float(value)
+        return number if math.isfinite(number) else None
+
     results = []
     for (product_key, user_a), (other_product, user_b) in combinations(groups, 2):
         if product_key != other_product:
@@ -57,7 +63,8 @@ def compute_price_statistics(points):
         prices_b = [point["normalized_price_cents"] for point in group_b]
         median_a = float(median(prices_a))
         median_b = float(median(prices_b))
-        diff_percent = abs(median_a - median_b) / max(median_a, median_b) * 100
+        denominator = max(median_a, median_b)
+        diff_percent = abs(median_a - median_b) / denominator * 100 if denominator else 0.0
         result = {
             "platform_code": group_a[0].get("platform_code"),
             "product_key": product_key,
@@ -76,14 +83,16 @@ def compute_price_statistics(points):
             "welch_p": None,
         }
         if len(prices_a) >= 3 and len(prices_b) >= 3:
-            mwu = stats.mannwhitneyu(prices_a, prices_b, alternative="two-sided")
-            welch = stats.ttest_ind(prices_a, prices_b, equal_var=False)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                mwu = stats.mannwhitneyu(prices_a, prices_b, alternative="two-sided")
+                welch = stats.ttest_ind(prices_a, prices_b, equal_var=False)
             result.update(
                 status="TESTS_AVAILABLE",
-                mann_whitney_u=float(mwu.statistic),
-                mann_whitney_p=float(mwu.pvalue),
-                welch_t=float(welch.statistic),
-                welch_p=float(welch.pvalue),
+                mann_whitney_u=finite_float(mwu.statistic),
+                mann_whitney_p=finite_float(mwu.pvalue),
+                welch_t=finite_float(welch.statistic),
+                welch_p=finite_float(welch.pvalue),
             )
         results.append(result)
     return results

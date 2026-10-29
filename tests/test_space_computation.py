@@ -145,6 +145,26 @@ class SpaceComputationTest(unittest.TestCase):
         self.assertTrue(math.isfinite(stat["welch_t"]))
         self.assertTrue(math.isfinite(stat["welch_p"]))
 
+    def test_constant_prices_never_emit_non_finite_test_values(self):
+        points = []
+        for index in range(3):
+            points.append(make_point(f"a{index}", user="u_a", price=1000))
+            points.append(make_point(f"b{index}", user="u_b", price=1000))
+        stat = compute_price_statistics(points)[0]
+        self.assertEqual(stat["status"], "TESTS_AVAILABLE")
+        self.assertIsNone(stat["mann_whitney_p"])
+        self.assertIsNone(stat["welch_t"])
+        self.assertIsNone(stat["welch_p"])
+
+    def test_zero_price_medians_do_not_divide_by_zero(self):
+        points = [
+            make_point("a", user="u_a", price=0),
+            make_point("b", user="u_b", price=0),
+        ]
+        stat = compute_price_statistics(points)[0]
+        self.assertEqual(stat["diff_percent"], 0.0)
+        self.assertFalse(stat["suspected"])
+
     def test_enrichment_preserves_inputs_and_computes_sample_and_deviation(self):
         points = [
             make_point("a", user="u_a", price=1000),

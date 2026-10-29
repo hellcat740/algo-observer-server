@@ -49,7 +49,7 @@ export function createMockData() {
           sample_size: 16,
           price_gap_suspected: userIndex > 0,
           price_gap_direction: userIndex > 0 ? 'HIGH' : 'LOW',
-          statistical_status: 'DESCRIPTIVE_SMALL_SAMPLE',
+          statistical_status: 'TESTS_AVAILABLE',
         });
       }
     });
@@ -80,8 +80,8 @@ export function createMockData() {
   const statistics = products.map(product => ({
     platform_code: product[5], product_key: product[0], user_a: users[0], user_b: users[1],
     n_a: 4, n_b: 4, median_a: product[6], median_b: Math.round(product[6] * 1.07),
-    diff_percent: 6.54, suspected: true, status: 'DESCRIPTIVE_SMALL_SAMPLE',
-    mann_whitney_u: null, mann_whitney_p: null, welch_t: null, welch_p: null,
+    diff_percent: 6.54, suspected: true, status: 'TESTS_AVAILABLE',
+    mann_whitney_u: 0, mann_whitney_p: 0.02, welch_t: -8.2, welch_p: 0.001,
   }));
   return {
     points, edges, statistics,
