@@ -36,9 +36,19 @@
 | --- | --- | --- |
 | `INGEST_API_KEY` | 插件上报密钥（公开，随插件分发），只放行 `POST /api/observations` | `api/app/auth.py` |
 | `ADMIN_KEY` | 管理员原始密钥（仅维护者持有，服务端只存 SHA-256 哈希） | `api/app/auth.py` |
+| `DEEPSEEK_API_KEY` | 商品分类模型密钥，仅在服务端使用，必须注入为部署密钥 | 无 |
+| `DEEPSEEK_BASE_URL` | OpenAI 兼容接口根地址 | `https://api.deepseek.com/v1` |
+| `DEEPSEEK_MODEL` | 商品分类模型 | `v4.1flash` |
 
 生产建议：在 Vercel 环境变量中注入 `ADMIN_KEY`，并在插件发布后把上报密钥与
 `chrome-extension://` 来源收敛到自己的扩展 ID 与域名。
+
+## 商品分类与高维可视化
+
+- 管理入口为 `/visualization`，数据接口为 `GET /api/analysis/visualization-points`，复用管理员 `X-API-Key`。
+- 分类只使用商品名、卖家、商品链接和平台。结果按商品稳定键缓存在独立的 `product_category_cache` 表；商品改名会创建新的缓存条目，不修改任何观测字段。
+- 未配置模型密钥、模型请求失败或响应不合法时，商品降级为“其他／无法判断”并标记需人工复核，观测点仍可查看。临时失败不写缓存。
+- 页面只将具有 `normalized_price_cents` 的点纳入人民币折算价散点图；其他币种与无汇率记录保留原币明细，不参与跨币种价格差计算。
 
 ## 目录结构
 

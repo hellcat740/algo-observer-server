@@ -46,6 +46,7 @@ cd algo-observer-server
 # 2.2 配置密钥
 cp .env.example .env
 nano .env            # POSTGRES_PASSWORD / ADMIN_KEY 换强随机串；INGEST_API_KEY 必须与插件内置值保持一致（勿改，见 .env.example）
+                     # 商品分类还需设置 DEEPSEEK_API_KEY，模型默认 v4.1flash
 
 # 2.3 构建并启动（首次会拉 postgres:17-alpine 镜像 + pip 依赖，1Mbps 约需几分钟）
 docker compose up -d --build
@@ -65,6 +66,20 @@ crontab -e
 # 17 3 * * * /opt/algo-observer-server/deploy/backup-db.sh >> /var/log/algo-backup.log 2>&1
 ./deploy/backup-db.sh   # 立即手动跑一次，验证备份链路
 ```
+
+## 2.6 商品分类与高维可视化
+
+`.env` 中配置以下变量，`docker-compose.yml` 的 `env_file` 会把它们传给 web 容器：
+
+```text
+DEEPSEEK_API_KEY=replace-with-deepseek-secret
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+DEEPSEEK_MODEL=v4.1flash
+```
+
+真实密钥只放在 ECS 的 `.env`，不要提交到 Git。更新后运行 `docker compose up -d --build`，再访问 `https://algodiscriminatingcheck.cn/visualization`。首次请求分类时会自动创建独立的 `product_category_cache` 表，不修改现有观测字段；同一商品的重复观测复用缓存，商品改名会生成新的分类缓存。
+
+未配置密钥或模型暂时失败不会阻断页面：商品会显示为“其他／无法判断”并需人工复核。配置完成后刷新页面即可重试临时失败的分类。
 
 ## 3. 备案前：先用 IP 验证全链路（已于部署初期完成）
 
