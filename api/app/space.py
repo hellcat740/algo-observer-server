@@ -83,17 +83,18 @@ def compute_price_statistics(points):
             "welch_p": None,
         }
         if len(prices_a) >= 3 and len(prices_b) >= 3:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", RuntimeWarning)
-                mwu = stats.mannwhitneyu(prices_a, prices_b, alternative="two-sided")
-                welch = stats.ttest_ind(prices_a, prices_b, equal_var=False)
-            result.update(
-                status="TESTS_AVAILABLE",
-                mann_whitney_u=finite_float(mwu.statistic),
-                mann_whitney_p=finite_float(mwu.pvalue),
-                welch_t=finite_float(welch.statistic),
-                welch_p=finite_float(welch.pvalue),
-            )
+            result["status"] = "TESTS_AVAILABLE"
+            if min(prices_a + prices_b) != max(prices_a + prices_b):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", RuntimeWarning)
+                    mwu = stats.mannwhitneyu(prices_a, prices_b, alternative="two-sided")
+                    welch = stats.ttest_ind(prices_a, prices_b, equal_var=False)
+                result.update(
+                    mann_whitney_u=finite_float(mwu.statistic),
+                    mann_whitney_p=finite_float(mwu.pvalue),
+                    welch_t=finite_float(welch.statistic),
+                    welch_p=finite_float(welch.pvalue),
+                )
         results.append(result)
     return results
 
