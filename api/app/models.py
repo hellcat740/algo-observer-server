@@ -163,6 +163,7 @@ class ProductCategoryCache(Base):
     )
 
 
+
 class ExchangeRate(Base):
     """服务器每日汇率缓存；金额仍按观测原币保存。"""
 
