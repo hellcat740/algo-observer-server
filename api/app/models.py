@@ -138,6 +138,31 @@ class User(Base):
     observation_count = Column(Integer, nullable=False, default=0)
 
 
+class ProductCategoryCache(Base):
+    """商品级分类缓存；与观测表解耦，按商品名称版本保存稳定结果。"""
+
+    __tablename__ = "product_category_cache"
+
+    cache_key = Column(String(64), primary_key=True)
+    product_key = Column(String(64), nullable=False, index=True)
+    platform_code = Column(String(50), nullable=False)
+    product_id = Column(String(200), nullable=False)
+    seller_id = Column(String(200), nullable=True)
+    product_name = Column(String(300), nullable=False)
+    product_url = Column(String(1000), nullable=False)
+    category_l1 = Column(String(100), nullable=False)
+    category_l2 = Column(String(100), nullable=False)
+    category_l3 = Column(String(100), nullable=False, default="")
+    confidence = Column(Float, nullable=False, default=0.0)
+    evidence = Column(String(200), nullable=False, default="")
+    needs_human_review = Column(Boolean, nullable=False, default=True)
+    model_name = Column(String(100), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    updated_at = Column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+
 class ExchangeRate(Base):
     """服务器每日汇率缓存；金额仍按观测原币保存。"""
 
