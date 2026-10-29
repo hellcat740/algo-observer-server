@@ -223,6 +223,19 @@ def _persist(db, result: dict[str, Any]) -> None:
     db.commit()
 
 
+def get_cached_classifications(db, observations: list[Any]) -> dict[str, dict]:
+    """只读分类缓存；绝不触发模型、fallback 或数据库写入。"""
+    products = deduplicate_products(observations)
+    results: dict[str, dict] = {}
+    for start in range(0, len(products), 500):
+        keys = [cache_key(product) for product in products[start:start + 500]]
+        rows = db.query(ProductCategoryCache).filter(
+            ProductCategoryCache.cache_key.in_(keys)
+        ).all()
+        results.update({row.cache_key: _row_result(row) for row in rows})
+    return results
+
+
 def classify_products(
     db,
     observations: list[Any],
@@ -230,20 +243,14 @@ def classify_products(
 ) -> tuple[dict[str, dict], list[str]]:
     """去重后分类；缓存命中零模型调用，临时失败不落缓存。"""
     products = deduplicate_products(observations)
-    cached: dict[str, ProductCategoryCache] = {}
-    for start in range(0, len(products), 500):
-        keys = [cache_key(product) for product in products[start:start + 500]]
-        rows = db.query(ProductCategoryCache).filter(
-            ProductCategoryCache.cache_key.in_(keys)
-        ).all()
-        cached.update({row.cache_key: row for row in rows})
+    cached = get_cached_classifications(db, observations)
 
     results: dict[str, dict] = {}
     warnings: list[str] = []
     for product in products:
         key = cache_key(product)
         if key in cached:
-            results[key] = _row_result(cached[key])
+            results[key] = cached[key]
             continue
         if len(product.product_name.strip()) < 4:
             result = _fallback(product)

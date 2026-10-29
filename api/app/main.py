@@ -21,6 +21,7 @@ from .auth import check_admin_key, require_api_key, require_ingest_key, require_
 from .exchange_rates import ExchangeRateUnavailable, latest_rate, refresh_rate, start_rate_refresh
 from .my_api import router as my_router
 from .pool_api import router as pool_router
+from .space_api import router as space_router
 from .sync_api import router as sync_router
 from .transfer_api import router as transfer_router
 from .cleaning import CleanError, clean_observation
@@ -59,6 +60,9 @@ app.include_router(my_router)
 
 # 数据池路由：/api/pool/*（X-User-Id 鉴权：批量同步上行 / 按商品拉取比对）
 app.include_router(pool_router)
+
+# 三维观测空间：/api/space/*（管理员鉴权，分类缓存只读 + 后台补全）
+app.include_router(space_router)
 
 # 本地数据通道路由：/api/local/*（本机后端：自动同步公网 / 拉取服务器数据比对）
 app.include_router(sync_router)
