@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品高维可视化 · 算法歧视众包观测</title>
+<style>
+  :root {
+    --bg:#f3f6fb; --card:#fff; --text:#172033; --muted:#64748b;
+    --border:#dfe6f0; --primary:#3157d5; --primary-dark:#2443ae;
+    --warn:#b45309; --warn-bg:#fff7e6; --danger:#b42318;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif; background:var(--bg); color:var(--text); font-size:14px; }
+  header { background:linear-gradient(120deg,#172b68,#3157d5); color:#fff; padding:15px 24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { font-size:19px; font-weight:650; }
+  header nav { display:flex; gap:14px; }
+  header nav a { color:rgba(255,255,255,.84); text-decoration:none; font-size:13px; }
+  header nav a:hover { color:#fff; text-decoration:underline; }
+  .key-box { margin-left:auto; display:flex; gap:8px; }
+  .key-box input { width:230px; padding:8px 11px; border:1px solid transparent; border-radius:7px; outline:none; }
+  .key-box input:focus { border-color:#bfdbfe; }
+  button { border:none; border-radius:7px; padding:8px 16px; cursor:pointer; font-size:13px; background:var(--primary); color:#fff; }
+  button:hover { background:var(--primary-dark); }
+  button:disabled { opacity:.55; cursor:not-allowed; }
+  .key-box button { background:rgba(255,255,255,.17); }
+  .key-box button:hover { background:rgba(255,255,255,.28); }
+  main { max-width:1440px; margin:0 auto; padding:22px 24px 48px; }
+  .intro { padding:13px 16px; border:1px solid #cfdbfa; background:#edf3ff; color:#36466d; border-radius:10px; line-height:1.75; font-size:13px; margin-bottom:15px; }
+  .panel { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:17px; margin-bottom:16px; box-shadow:0 2px 8px rgba(30,50,90,.04); }
+  .filters { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+  .filters label { display:grid; gap:6px; color:var(--muted); font-size:12px; }
+  select { min-width:160px; padding:8px 10px; border:1px solid var(--border); border-radius:7px; background:#fff; color:var(--text); outline:none; }
+  select:focus { border-color:var(--primary); }
+  .filters .grow { flex:1; }
+  .muted { color:var(--muted); }
+  .small { font-size:12px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:13px; margin-bottom:16px; }
+  .card { background:#fff; border:1px solid var(--border); border-radius:11px; padding:15px 17px; }
+  .card h2 { color:var(--muted); font-size:12px; font-weight:500; margin-bottom:7px; }
+  .card .number { font-size:27px; line-height:1.2; font-weight:700; color:var(--primary); }
+  .warnings { display:none; padding:12px 15px; border-radius:9px; background:var(--warn-bg); color:#854a0e; border:1px solid #f2d6a2; margin-bottom:16px; font-size:13px; line-height:1.7; }
+  .warnings.show { display:block; }
+  .section-head { display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+  .section-head h2 { font-size:16px; }
+  .section-head p { color:var(--muted); font-size:12px; margin-top:4px; line-height:1.6; }
+  .section-head .right { margin-left:auto; text-align:right; }
+  .chart-wrap { width:100%; overflow-x:auto; }
+  #chart { display:block; width:100%; min-width:720px; height:auto; }
+  .axis { stroke:#9aa8bc; stroke-width:1; }
+  .grid { stroke:#e8edf4; stroke-width:1; }
+  .tick { fill:#64748b; font-size:11px; }
+  .axis-title { fill:#475569; font-size:12px; }
+  .obs-point { cursor:pointer; stroke:#fff; stroke-width:1.2; opacity:.82; }
+  .obs-point:hover,.obs-point:focus { opacity:1; stroke:#111827; stroke-width:2; outline:none; }
+  .legend { display:flex; gap:8px 16px; flex-wrap:wrap; margin-top:8px; font-size:12px; color:var(--muted); }
+  .legend-item { display:inline-flex; align-items:center; gap:6px; }
+  .swatch { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .empty { text-align:center; color:var(--muted); padding:42px 16px; line-height:1.8; }
+  .two-col { display:grid; grid-template-columns:1.2fr 1fr; gap:16px; }
+  .category-list { display:grid; gap:9px; }
+  .category-row { display:flex; align-items:center; gap:9px; font-size:13px; }
+  .category-row .name { min-width:110px; }
+  .bar { height:7px; background:#e9eef6; border-radius:99px; overflow:hidden; flex:1; }
+  .bar > span { display:block; height:100%; border-radius:99px; }
+  .count { color:var(--muted); min-width:34px; text-align:right; }
+  .review-list { color:var(--muted); font-size:12px; line-height:1.8; max-height:180px; overflow:auto; }
+  .review-list li { margin-left:17px; }
+  .table-wrap { overflow:auto; max-height:620px; border:1px solid var(--border); border-radius:9px; }
+  table { width:100%; border-collapse:collapse; min-width:1420px; }
+  th,td { padding:10px 11px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; font-size:12px; }
+  th { position:sticky; top:0; background:#f7f9fc; color:#526077; font-weight:600; white-space:nowrap; z-index:1; }
+  tbody tr:hover { background:#f5f8ff; }
+  td.product { min-width:230px; max-width:310px; }
+  td .sub { color:var(--muted); margin-top:3px; word-break:break-all; }
+  .chip { display:inline-block; padding:2px 7px; border-radius:99px; background:#eef2ff; color:#3749a5; white-space:nowrap; }
+  .chip.gray { background:#f1f5f9; color:#64748b; }
+  .chip.warn { background:#fef3c7; color:#92400e; }
+  .price { white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .tooltip { position:fixed; display:none; z-index:100; width:360px; max-width:calc(100vw - 28px); max-height:70vh; overflow:auto; pointer-events:none; background:rgba(15,23,42,.97); color:#e2e8f0; border:1px solid #475569; border-radius:10px; padding:13px 15px; box-shadow:0 12px 36px rgba(0,0,0,.25); font-size:12px; line-height:1.75; }
+  .tooltip.show { display:block; }
+  .tooltip h3 { color:#fff; font-size:13px; margin-bottom:7px; }
+  .tooltip dl { display:grid; grid-template-columns:105px 1fr; gap:2px 8px; }
+  .tooltip dt { color:#94a3b8; }
+  .tooltip dd { word-break:break-all; }
+  .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); display:none; z-index:120; color:#fff; background:var(--danger); border-radius:8px; padding:10px 18px; box-shadow:0 5px 20px rgba(0,0,0,.18); }
+  .loading { color:var(--muted); font-size:12px; align-self:center; }
+  @media (max-width:900px) {
+    main { padding:16px 12px 36px; }
+    .two-col { grid-template-columns:1fr; }
+    .key-box { margin-left:0; width:100%; }
+    .key-box input { flex:1; width:auto; }
+    .section-head .right { margin-left:0; text-align:left; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>商品高维可视化</h1>
+  <nav><a href="/console">管理控制台</a><a href="/analysis">统计分析</a></nav>
+  <div class="key-box">
+    <input id="apiKey" type="password" placeholder="管理员 API Key" autocomplete="off">
+    <button id="saveKey" type="button">保存并刷新</button>
+  </div>
+</header>
+<main>
+  <div class="intro">
+    每个点对应一条原始观测。颜色表示商品一级分类，形状表示平台；横轴为 UTC 采集时间，纵轴为人民币折算价。
+    大模型只使用商品名、卖家、链接和平台进行分类，不参与用户或价格关系判断。没有折算价的记录仍保留在下方明细表。
+  </div>
+
+  <section class="panel filters" aria-label="数据过滤">
+    <label>平台<select id="platformFilter"><option value="">全部平台</option></select></label>
+    <label>一级分类<select id="categoryFilter"><option value="">全部分类</option></select></label>
+    <label>原始币种<select id="currencyFilter"><option value="">全部币种</option></select></label>
+    <button id="refresh" type="button">刷新数据</button>
+    <span id="loading" class="loading"></span>
+    <span class="grow"></span>
+    <span id="rateInfo" class="muted small"></span>
+  </section>
+
+  <div class="cards">
+    <div class="card"><h2>观测点</h2><div class="number" id="totalCount">—</div></div>
+    <div class="card"><h2>可绘制折算价</h2><div class="number" id="normalizedCount">—</div></div>
+    <div class="card"><h2>涉及一级分类</h2><div class="number" id="categoryCount">—</div></div>
+    <div class="card"><h2>需人工复核商品</h2><div class="number" id="reviewCount">—</div></div>
+  </div>
+  <div id="warnings" class="warnings"></div>
+
+  <section class="panel">
+    <div class="section-head">
+      <div><h2>时间 × 折算价 × 分类 × 平台</h2><p>悬停或聚焦数据点查看用户假名、促销、会员、设备、城市、库存和证据标记。</p></div>
+      <div class="right muted small" id="chartNote"></div>
+    </div>
+    <div id="chartArea" class="chart-wrap"><div class="empty">正在加载观测点…</div></div>
+    <div id="legend" class="legend"></div>
+  </section>
+
+  <div class="two-col">
+    <section class="panel">
+      <div class="section-head"><div><h2>分类分布</h2><p>按当前过滤后的观测点计数。</p></div></div>
+      <div id="categorySummary" class="category-list"></div>
+    </section>
+    <section class="panel">
+      <div class="section-head"><div><h2>分类复核</h2><p>低置信、信息不足或模型暂时不可用的商品。</p></div></div>
+      <div id="reviewSummary" class="review-list"></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="section-head">
+      <div><h2>原始点明细</h2><p>原始价格始终带原币种；折算价为空时不会进入散点图，也不参与价格差关系计算。</p></div>
+      <div class="right muted small" id="tableNote"></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>采集时间（UTC）</th><th>商品 / 分类</th><th>用户假名</th><th>平台 / 卖家</th>
+          <th>价格基准</th><th>原始价格</th><th>人民币折算价</th><th>促销</th>
+          <th>用户环境</th><th>设备 / 城市 / 库存</th><th>证据</th>
+        </tr></thead>
+        <tbody id="pointRows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<div id="tooltip" class="tooltip" role="tooltip"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const state = { points: [], classifications: [], meta: {}, chartable: [] };
+let apiKey = localStorage.getItem('obs_api_key') || '';
+const knownPlatforms = new Set(['taobao', 'tmall', 'jd', 'amazon']);
+const knownCurrencies = new Set(['CNY', 'USD']);
+const categories = ['手机数码','电脑办公','家用电器','服饰鞋包','美妆个护','母婴玩具','食品生鲜','家居家装','图书文娱','运动户外','汽车用品','医疗健康','宠物用品','虚拟服务','其他／无法判断'];
+const palette = ['#3157d5','#e05360','#138a72','#9a5bd0','#e18928','#237fbd','#bf4d8c','#5c8a32','#795548','#607d8b','#d04a98','#00838f','#8d6e63','#6d5bd0','#7b8494'];
+const platformNames = { taobao:'淘宝', tmall:'天猫', jd:'京东', amazon:'Amazon' };
+$('apiKey').value = apiKey;
+
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
+function formatCents(value) {
+  return Number.isFinite(value) ? '¥' + (value / 100).toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+}
+function formatOriginal(value, currency) {
+  return Number.isFinite(value) ? (value / 100).toFixed(2) + ' ' + currency : '—';
+}
+function formatTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString().replace('T',' ').replace('.000Z','Z');
+}
+function boolText(value) {
+  return value === true ? '是' : value === false ? '否' : '未知';
+}
+function categoryColor(category) {
+  const index = Math.max(0, categories.indexOf(category));
+  return palette[index % palette.length];
+}
+function platformShape(platform) {
+  if (platform === 'jd') return 'square';
+  if (platform === 'amazon') return 'diamond';
+  if (platform === 'tmall') return 'triangle';
+  return 'circle';
+}
+function chartablePoints(points) {
+  return points.filter(point => Number.isFinite(point.normalized_price_cents) && point.fetch_ts && Number.isFinite(Date.parse(point.fetch_ts)));
+}
+function toast(message) {
+  $('toast').textContent = message;
+  $('toast').style.display = 'block';
+  setTimeout(() => { $('toast').style.display = 'none'; }, 3200);
+}
+async function api(path) {
+  const response = await fetch(path, { headers: { 'X-API-Key': apiKey } });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.detail || ('HTTP ' + response.status));
+  }
+  return response.json();
+}
+function renderFilterOptions() {
+  const configs = [
+    ['platformFilter', knownPlatforms, value => platformNames[value] || value],
+    ['currencyFilter', knownCurrencies, value => value],
+    ['categoryFilter', new Set(categories), value => value],
+  ];
+  configs.forEach(([id, values, label]) => {
+    const select = $(id);
+    const current = select.value;
+    const first = select.querySelector('option');
+    select.innerHTML = '';
+    select.appendChild(first);
+    Array.from(values).sort().forEach(value => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label(value);
+      select.appendChild(option);
+    });
+    select.value = current;
+  });
+}
+function renderMeta() {
+  const total = state.points.length;
+  const chartable = chartablePoints(state.points);
+  $('totalCount').textContent = total;
+  $('normalizedCount').textContent = chartable.length;
+  $('categoryCount').textContent = new Set(state.points.map(point => point.category_l1)).size;
+  $('reviewCount').textContent = state.classifications.filter(item => item.needs_human_review).length;
+  $('tableNote').textContent = `共 ${total} 条，原始记录未改写`;
+  $('chartNote').textContent = chartable.length === total ? '全部点均可绘制' : `${total - chartable.length} 条仅显示在明细表`;
+  const rate = state.meta.exchange_rate;
+  $('rateInfo').textContent = rate ? `USD/CNY ${rate.rate} · ${rate.rate_date}${rate.stale ? ' · 最近成功汇率' : ''}` : '';
+  const warnings = [...(state.meta.warnings || [])];
+  if (rate && rate.stale) warnings.push(`当前使用 ${rate.rate_date} 的最近成功汇率（${rate.source || '服务器缓存'}）`);
+  $('warnings').innerHTML = warnings.length ? warnings.map(esc).join('<br>') : '';
+  $('warnings').classList.toggle('show', warnings.length > 0);
+}
+function shapeMarkup(point, x, y, color) {
+  const size = 6;
+  const shape = platformShape(point.platform_code);
+  if (shape === 'square') return `<rect x="${x-size}" y="${y-size}" width="${size*2}" height="${size*2}" rx="1" fill="${color}"/>`;
+  if (shape === 'diamond') return `<polygon points="${x},${y-size-1} ${x+size+1},${y} ${x},${y+size+1} ${x-size-1},${y}" fill="${color}"/>`;
+  if (shape === 'triangle') return `<polygon points="${x},${y-size-1} ${x+size+1},${y+size} ${x-size-1},${y+size}" fill="${color}"/>`;
+  return `<circle cx="${x}" cy="${y}" r="${size}" fill="${color}"/>`;
+}
+function renderChart() {
+  const points = chartablePoints(state.points);
+  state.chartable = points;
+  if (!points.length) {
+    $('chartArea').innerHTML = '<div class="empty">没有可绘制的人民币折算价。<br>原始观测仍可在下方明细表查看。</div>';
+    $('legend').innerHTML = '';
+    return;
+  }
+  const width = 1100, height = 480, left = 88, right = 28, top = 28, bottom = 66;
+  const plotWidth = width - left - right, plotHeight = height - top - bottom;
+  const times = points.map(point => Date.parse(point.fetch_ts));
+  const prices = points.map(point => point.normalized_price_cents);
+  let minTime = Math.min(...times), maxTime = Math.max(...times);
+  if (minTime === maxTime) { minTime -= 3600000; maxTime += 3600000; }
+  let minPrice = Math.min(...prices), maxPrice = Math.max(...prices);
+  const pricePad = Math.max(1, (maxPrice - minPrice) * 0.1, minPrice * 0.03);
+  minPrice = Math.max(0, minPrice - pricePad);
+  maxPrice += pricePad;
+  const x = value => left + (value - minTime) / (maxTime - minTime) * plotWidth;
+  const y = value => top + (maxPrice - value) / (maxPrice - minPrice) * plotHeight;
+  let svg = `<svg id="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="观测采集时间与人民币折算价散点图">`;
+  for (let i = 0; i <= 5; i++) {
+    const price = minPrice + (maxPrice - minPrice) * i / 5;
+    const py = y(price);
+    svg += `<line class="grid" x1="${left}" y1="${py}" x2="${width-right}" y2="${py}"/>`;
+    svg += `<text class="tick" x="${left-10}" y="${py+4}" text-anchor="end">${esc(formatCents(Math.round(price)))}</text>`;
+  }
+  for (let i = 0; i <= 4; i++) {
+    const time = minTime + (maxTime - minTime) * i / 4;
+    const px = x(time);
+    svg += `<line class="grid" x1="${px}" y1="${top}" x2="${px}" y2="${height-bottom}"/>`;
+    svg += `<text class="tick" x="${px}" y="${height-bottom+22}" text-anchor="middle">${esc(new Date(time).toISOString().slice(5,16).replace('T',' '))}</text>`;
+  }
+  svg += `<line class="axis" x1="${left}" y1="${height-bottom}" x2="${width-right}" y2="${height-bottom}"/>`;
+  svg += `<line class="axis" x1="${left}" y1="${top}" x2="${left}" y2="${height-bottom}"/>`;
+  svg += `<text class="axis-title" x="${left+plotWidth/2}" y="${height-15}" text-anchor="middle">采集时间（UTC）</text>`;
+  svg += `<text class="axis-title" transform="translate(18 ${top+plotHeight/2}) rotate(-90)" text-anchor="middle">人民币折算价</text>`;
+  points.forEach((point, index) => {
+    const color = categoryColor(point.category_l1);
+    svg += `<g class="obs-point" tabindex="0" data-chart-index="${index}" aria-label="${esc(point.product_name)} ${esc(formatCents(point.normalized_price_cents))}">`;
+    svg += shapeMarkup(point, x(Date.parse(point.fetch_ts)), y(point.normalized_price_cents), color);
+    svg += '</g>';
+  });
+  svg += '</svg>';
+  $('chartArea').innerHTML = svg;
+  document.querySelectorAll('.obs-point').forEach(element => {
+    element.addEventListener('mousemove', event => showTooltip(event, points[Number(element.dataset.chartIndex)]));
+    element.addEventListener('mouseleave', hideTooltip);
+    element.addEventListener('focus', event => showTooltip(event, points[Number(element.dataset.chartIndex)]));
+    element.addEventListener('blur', hideTooltip);
+  });
+  renderLegend(points);
+}
+function renderLegend(points) {
+  const counts = {};
+  points.forEach(point => { counts[point.category_l1] = (counts[point.category_l1] || 0) + 1; });
+  const categoryItems = Object.entries(counts).map(([category, count]) =>
+    `<span class="legend-item"><span class="swatch" style="background:${categoryColor(category)}"></span>${esc(category)} ${count}</span>`
+  );
+  const shapeItems = ['taobao','tmall','jd','amazon'].filter(platform => points.some(point => point.platform_code === platform)).map(platform => {
+    const symbols = { circle:'●', square:'■', diamond:'◆', triangle:'▲' };
+    return `<span class="legend-item">${symbols[platformShape(platform)]} ${esc(platformNames[platform])}</span>`;
+  });
+  $('legend').innerHTML = categoryItems.concat(shapeItems).join('');
+}
+function showTooltip(event, point) {
+  const tooltip = $('tooltip');
+  const fields = [
+    ['时间', formatTime(point.fetch_ts)], ['用户假名', point.user_pseudonym || '未知'],
+    ['商品 ID', point.product_id], ['商品稳定键', point.product_key], ['卖家', point.seller_id || '—'],
+    ['分类', `${point.category_l1} / ${point.category_l2}（置信度 ${point.category_confidence}）`],
+    ['价格基准', point.price_basis], ['展示价', formatOriginal(point.display_price_cents, point.currency)],
+    ['到手价', formatOriginal(point.actual_pay_price_cents, point.currency)],
+    ['折算价', formatCents(point.normalized_price_cents)],
+    ['汇率', point.exchange_rate == null ? '—' : `${point.exchange_rate} · ${point.exchange_rate_date || '同币'}${point.exchange_stale ? ' · 缓存回退' : ''}`],
+    ['促销', [point.promo_type, point.promo_label].filter(Boolean).join(' / ') || '—'],
+    ['登录 / 会员', `${boolText(point.is_login)} / ${point.membership_level || '—'}`],
+    ['新用户 / 注册天数', `${boolText(point.is_new_user)} / ${point.register_days ?? '—'}`],
+    ['设备', `${point.platform || '—'} / 档次分 ${point.device_price_score_estimate ?? '—'}`],
+    ['IP / 配送城市', `${point.ip_city || '—'} / ${point.shipping_city || '—'}`],
+    ['高峰 / 库存', `${boolText(point.peak_hour)} / ${point.stock_hint || '—'}`],
+    ['页面价格文本', point.dom_price_text || '—'],
+    ['截图 / DOM', `${boolText(point.has_screenshot)} / ${boolText(point.has_dom_snapshot)}`],
+    ['采集版本', point.source_code_version || '—'],
+  ];
+  tooltip.innerHTML = `<h3>${esc(point.product_name)}</h3><dl>${fields.map(([key,value]) => `<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl>`;
+  tooltip.classList.add('show');
+  const rect = tooltip.getBoundingClientRect();
+  const clientX = event.clientX || window.innerWidth / 2;
+  const clientY = event.clientY || window.innerHeight / 2;
+  tooltip.style.left = Math.max(10, Math.min(clientX + 16, window.innerWidth - rect.width - 12)) + 'px';
+  tooltip.style.top = Math.max(10, Math.min(clientY + 16, window.innerHeight - rect.height - 12)) + 'px';
+}
+function hideTooltip() { $('tooltip').classList.remove('show'); }
+function renderCategorySummary() {
+  const counts = {};
+  state.points.forEach(point => { counts[point.category_l1] = (counts[point.category_l1] || 0) + 1; });
+  const entries = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+  const max = Math.max(1, ...entries.map(entry => entry[1]));
+  $('categorySummary').innerHTML = entries.length ? entries.map(([category,count]) =>
+    `<div class="category-row"><span class="swatch" style="background:${categoryColor(category)}"></span><span class="name">${esc(category)}</span><div class="bar"><span style="width:${count/max*100}%;background:${categoryColor(category)}"></span></div><span class="count">${count}</span></div>`
+  ).join('') : '<div class="empty">暂无分类数据</div>';
+  const review = state.classifications.filter(item => item.needs_human_review);
+  $('reviewSummary').innerHTML = review.length ? `<ul>${review.map(item =>
+    `<li>${esc(item.product_name)}<br><span class="muted">${esc(item.category_l1)} / ${esc(item.category_l2)} · 置信度 ${esc(item.confidence)}</span></li>`
+  ).join('')}</ul>` : '当前商品均无需人工复核。';
+}
+function renderTable() {
+  $('pointRows').innerHTML = state.points.map(point => {
+    const environment = `登录 ${boolText(point.is_login)} · 新用户 ${boolText(point.is_new_user)}<div class="sub">会员 ${esc(point.membership_level || '—')} · 注册 ${esc(point.register_days ?? '—')} 天</div>`;
+    const device = `${esc(point.platform || '—')} · 档次 ${esc(point.device_price_score_estimate ?? '—')}<div class="sub">${esc(point.ip_city || '—')} / ${esc(point.shipping_city || '—')} · ${esc(point.stock_hint || '—')}</div>`;
+    const evidence = `截图 ${boolText(point.has_screenshot)} · DOM ${boolText(point.has_dom_snapshot)}<div class="sub">${esc(point.source_code_version || '—')}</div>`;
+    return `<tr>
+      <td class="price">${esc(formatTime(point.fetch_ts))}</td>
+      <td class="product">${esc(point.product_name)}<div class="sub"><span class="chip">${esc(point.category_l1)}</span> ${esc(point.category_l2)} · ${esc(point.category_confidence)}</div><div class="sub">${esc(point.product_id)}</div></td>
+      <td>${esc(point.user_pseudonym || '未知')}</td>
+      <td>${esc(platformNames[point.platform_code] || point.platform_code)}<div class="sub">${esc(point.seller_id || '—')}</div></td>
+      <td><span class="chip ${point.price_basis === 'ACTUAL' ? 'warn' : ''}">${point.price_basis === 'DISPLAY' ? '展示价' : '到手价'}</span><div class="sub">${esc(point.basis_price_cents ?? '—')} 分</div></td>
+      <td class="price">展示 ${esc(formatOriginal(point.display_price_cents, point.currency))}<div class="sub">到手 ${esc(formatOriginal(point.actual_pay_price_cents, point.currency))}</div></td>
+      <td class="price">${esc(formatCents(point.normalized_price_cents))}${point.exchange_stale ? '<div class="sub">最近成功汇率</div>' : ''}</td>
+      <td>${esc(point.promo_type || '—')}<div class="sub">${esc(point.promo_label || '')}</div></td>
+      <td>${environment}</td><td>${device}</td><td>${evidence}</td>
+    </tr>`;
+  }).join('');
+  if (!state.points.length) $('pointRows').innerHTML = '<tr><td colspan="11" class="empty">当前过滤条件下没有观测点</td></tr>';
+}
+function render() {
+  renderMeta();
+  renderChart();
+  renderCategorySummary();
+  renderTable();
+}
+async function loadData() {
+  $('refresh').disabled = true;
+  $('loading').textContent = '正在分类并计算观测点…';
+  try {
+    const params = new URLSearchParams();
+    const filters = { platform_code: $('platformFilter').value, category_l1: $('categoryFilter').value, currency: $('currencyFilter').value };
+    Object.entries(filters).forEach(([key,value]) => { if (value) params.set(key, value); });
+    const query = params.toString();
+    const data = await api('/api/analysis/visualization-points' + (query ? '?' + query : ''));
+    state.points = data.points || [];
+    state.classifications = data.classifications || [];
+    state.meta = data.meta || {};
+    state.points.forEach(point => { knownPlatforms.add(point.platform_code); knownCurrencies.add(point.currency); });
+    renderFilterOptions();
+    render();
+  } catch (error) {
+    toast('加载失败：' + error.message);
+    $('chartArea').innerHTML = '<div class="empty">数据加载失败，请检查管理员 API Key 后重试。</div>';
+  } finally {
+    $('refresh').disabled = false;
+    $('loading').textContent = '';
+  }
+}
+$('saveKey').addEventListener('click', () => {
+  apiKey = $('apiKey').value.trim();
+  localStorage.setItem('obs_api_key', apiKey);
+  loadData();
+});
+$('refresh').addEventListener('click', loadData);
+['platformFilter','categoryFilter','currencyFilter'].forEach(id => $(id).addEventListener('change', loadData));
+renderFilterOptions();
+loadData();
+</script>
+</body>
+</html>

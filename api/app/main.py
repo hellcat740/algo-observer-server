@@ -216,6 +216,12 @@ def analysis_page():
     return FileResponse(STATIC_DIR / "analysis.html")
 
 
+@app.get("/visualization", include_in_schema=False)
+def visualization_page():
+    """商品分类与高维观测点可视化（数据接口需管理员凭证）。"""
+    return FileResponse(STATIC_DIR / "visualization.html")
+
+
 @app.get("/overview", include_in_schema=False)
 def overview_page():
     """数据池总览看板（用户侧，X-User-Id）：全池数据量与歧视分析情况。"""
