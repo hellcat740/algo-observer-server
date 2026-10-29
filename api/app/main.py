@@ -12,6 +12,7 @@ from typing import Optional
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
@@ -45,6 +46,7 @@ app = FastAPI(
     description="接收浏览器插件上报的观测数据，存入 PostgreSQL，并提供查询与管理页面。",
     version="0.1.0",
 )
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # 统计分析路由：/api/analysis/*（管理员鉴权）
 app.include_router(analysis_router)
@@ -224,6 +226,12 @@ def analysis_page():
 def visualization_page():
     """商品分类与高维观测点可视化（数据接口需管理员凭证）。"""
     return FileResponse(STATIC_DIR / "visualization.html")
+
+
+@app.get("/space", include_in_schema=False)
+def space_page():
+    """三维观测空间（复用控制台管理员会话，数据接口独立鉴权）。"""
+    return FileResponse(STATIC_DIR / "space.html")
 
 
 @app.get("/overview", include_in_schema=False)

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三维观测空间 · 算法歧视众包观测</title>
+<style>
+:root{--bg:#07111f;--panel:#0e1b2c;--panel2:#122238;--line:#243750;--text:#e5edf7;--muted:#91a4bc;--blue:#63a4ff;--cyan:#46d9d0;--amber:#f6bd60;--red:#ff7185;--green:#69db7c}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;background:var(--bg);color:var(--text);font-size:14px}button,input,select{font:inherit}button{cursor:pointer}header{padding:16px 24px;background:#0a1728;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:18px;flex-wrap:wrap;position:sticky;top:0;z-index:20}h1{font-size:19px}header nav{display:flex;gap:15px}header a{color:var(--muted);text-decoration:none}header a:hover{color:#fff}.header-status{margin-left:auto;color:var(--muted);font-size:12px}.wrap{padding:18px 22px 40px;max-width:1800px;margin:auto}.notice{background:#15263b;border:1px solid #31547b;border-radius:10px;padding:12px 15px;color:#bfd5ee;line-height:1.7;margin-bottom:14px}.notice strong{color:#fff}.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px;margin-bottom:14px}.toolbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.toolbar label,.time-controls label,.compare-controls label{display:grid;gap:5px;color:var(--muted);font-size:11px}.toolbar input,.toolbar select,.time-controls input,.compare-controls select{background:#0a1727;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px 9px;min-width:125px;outline:none}.toolbar input:focus,.toolbar select:focus{border-color:var(--blue)}.search{min-width:210px!important}.btn{border:1px solid #36577d;background:#173454;color:#e9f3ff;border-radius:7px;padding:8px 13px}.btn:hover{background:#21476f}.btn.secondary{background:transparent}.btn.active{background:var(--blue);border-color:var(--blue);color:#07111f}.btn:disabled{opacity:.45;cursor:not-allowed}.segment{display:flex}.segment .btn{border-radius:0}.segment .btn:first-child{border-radius:7px 0 0 7px}.segment .btn:last-child{border-radius:0 7px 7px 0}.meta-row{display:flex;gap:9px 20px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:12px}.badge{display:inline-block;border-radius:99px;padding:2px 8px;background:#1c3551;color:#b9d8fb}.badge.mock{background:#633d12;color:#ffe0a3}.layout{display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:14px}.scene-panel{padding:0;overflow:hidden;position:relative}.scene-head{display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid var(--line);flex-wrap:wrap}.scene-head h2{font-size:15px}.scene-head span{color:var(--muted);font-size:12px}#scene{height:650px;position:relative;background:radial-gradient(circle at 50% 30%,#132b45,#07111f 70%)}#scene canvas{display:block;width:100%;height:100%}.axis-note{position:absolute;left:14px;bottom:12px;color:#9db3cc;font-size:11px;pointer-events:none;background:#07111fb8;padding:6px 8px;border-radius:5px}.empty{position:absolute;inset:0;display:grid;place-content:center;text-align:center;gap:12px;color:var(--muted);padding:30px;pointer-events:none}.empty[hidden]{display:none}.tooltip{position:fixed;z-index:50;display:none;max-width:360px;background:#020914f2;border:1px solid #3c5878;border-radius:9px;padding:12px 14px;pointer-events:none;color:#dce9f8;font-size:12px;line-height:1.7;box-shadow:0 10px 35px #0008}.tooltip.show{display:block}.time-controls{display:flex;align-items:end;gap:10px;flex-wrap:wrap;padding:12px 15px;border-top:1px solid var(--line)}#playPosition{flex:1;min-width:160px;accent-color:var(--blue)}.side{display:grid;gap:14px;align-content:start}.side .panel{margin:0}.side h2{font-size:14px;margin-bottom:11px}.relations{display:grid;grid-template-columns:1fr 1fr;gap:9px}.relations label{color:var(--muted);font-size:12px;display:flex;gap:6px;align-items:center}.relations input{accent-color:var(--blue)}.detail{font-size:12px;line-height:1.8;color:var(--muted);max-height:230px;overflow:auto}.detail dl{display:grid;grid-template-columns:88px 1fr;gap:2px 8px}.detail dd{color:var(--text);word-break:break-word}.stats-list{display:grid;gap:9px;max-height:260px;overflow:auto}.stat-card{background:var(--panel2);border-radius:8px;padding:10px;font-size:12px;line-height:1.65}.stat-card strong{color:#fff}.stat-card small{color:var(--muted)}.compare-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.compare-controls select{min-width:110px;max-width:150px}#comparison{max-height:220px;overflow:auto;color:var(--muted);font-size:12px;line-height:1.7}.below{display:grid;grid-template-columns:1fr 1fr;gap:14px}.table-wrap{overflow:auto;max-height:620px}table{border-collapse:collapse;width:100%;min-width:1000px;font-size:12px}th,td{text-align:left;border-bottom:1px solid var(--line);padding:9px 10px;vertical-align:top}th{position:sticky;top:0;background:#132238;color:#b7c9de;z-index:2}tbody tr{cursor:pointer}tbody tr:hover{background:#152940}.high{color:var(--red)}.low{color:var(--cyan)}.muted{color:var(--muted)}.legal{color:var(--amber);font-size:12px;line-height:1.7}.warnings{color:var(--amber);font-size:12px;margin-top:8px}.hidden{display:none!important}@media(max-width:1100px){.layout{grid-template-columns:1fr}.side{grid-template-columns:1fr 1fr}.below{grid-template-columns:1fr}#scene{height:560px}}@media(max-width:700px){.wrap{padding:12px 10px 30px}.side{grid-template-columns:1fr}.toolbar label{flex:1}.toolbar input,.toolbar select{min-width:100px;width:100%}#scene{height:470px}.header-status{margin-left:0}.time-controls{align-items:center}}
+</style>
+<script type="importmap">{"imports":{"three":"/static/vendor/three.module.min.js"}}</script>
+</head>
+<body>
+<header>
+  <h1>三维观测空间</h1>
+  <nav><a href="/console">管理控制台</a><a href="/visualization">二维分类视图</a></nav>
+  <div class="header-status" id="classificationStatus">尚未加载</div>
+</header>
+<main class="wrap">
+  <div class="notice"><strong>研究边界：</strong>统计疑似不等于法律认定，可视化结果仅用于研究线索筛查。小样本仅作描述，不输出显著性结论；高维坐标是确定性特征投影，不是 PCA、t-SNE 或 UMAP。</div>
+  <section class="panel" aria-label="筛选工具">
+    <div class="toolbar">
+      <label>平台<select id="platformFilter"><option value="">全部平台</option></select></label>
+      <label>一级分类<select id="categoryFilter"><option value="">全部分类</option></select></label>
+      <label>用户假名<input id="userFilter" placeholder="精确假名"></label>
+      <label>城市<input id="cityFilter" placeholder="IP 或收货城市"></label>
+      <label>促销<select id="promoFilter"><option value="">全部</option><option value="yes">有促销</option><option value="no">无促销</option></select></label>
+      <label>价差<select id="gapFilter"><option value="">全部</option><option value="yes">疑似价差</option><option value="high">高价侧</option><option value="low">低价侧</option></select></label>
+      <label>搜索商品<input id="searchInput" class="search" placeholder="商品名、ID 或卖家"></label>
+      <label>坐标模式<select id="coordinateMode"><option value="business">业务坐标</option><option value="feature">特征投影</option></select></label>
+      <label>颜色维度<select id="colorDimension"><option value="platform">平台</option><option value="category">分类</option><option value="user">用户</option><option value="gap">价差方向</option></select></label>
+      <div class="segment" aria-label="视图切换"><button class="btn active" data-view="3d">3D</button><button class="btn" data-view="2d">2D</button><button class="btn" data-view="table">表格</button></div>
+      <button class="btn secondary" id="refreshButton">刷新</button>
+      <button class="btn secondary" id="mockButton">载入演示数据</button>
+      <button class="btn" id="exportButton">导出 CSV</button>
+    </div>
+    <div class="meta-row"><span id="dataMode" class="badge">真实数据</span><span id="pointMeta">0 个观测点</span><span id="edgeMeta">0 条关系</span><span id="samplingMeta"></span><span id="rateMeta"></span></div>
+    <div id="warnings" class="warnings"></div>
+  </section>
+  <div class="layout">
+    <section class="panel scene-panel" id="visualPanel">
+      <div class="scene-head"><h2 id="viewTitle">观测点云</h2><span>拖动旋转 · 滚轮缩放 · 右键平移 · 点击商品突出</span><span id="visibleCount"></span></div>
+      <div id="scene"><div class="empty" id="emptyState"><div>暂无符合当前条件的观测点</div><small>无真实数据时，可主动载入明确标注的演示数据</small></div></div>
+      <div class="axis-note" id="axisNote">X：时间　Y：分类　Z：相对中位价偏差</div>
+      <div class="time-controls">
+        <label>开始时间（UTC）<input type="datetime-local" id="startTime"></label>
+        <label>结束时间（UTC）<input type="datetime-local" id="endTime"></label>
+        <button class="btn secondary" id="playButton">播放</button>
+        <input type="range" id="playPosition" min="0" max="0" value="0" aria-label="时间播放位置">
+        <span class="muted" id="playLabel">全部时间</span>
+      </div>
+    </section>
+    <aside class="side">
+      <section class="panel"><h2>关系图层</h2><div class="relations">
+        <label><input type="checkbox" data-relation="SAME_PRODUCT" checked>同商品</label>
+        <label><input type="checkbox" data-relation="SAME_USER" checked>同用户</label>
+        <label><input type="checkbox" data-relation="SAME_USER_PRODUCT">同用户同商品</label>
+        <label><input type="checkbox" data-relation="TIME_NEIGHBOR">时间邻近</label>
+        <label><input type="checkbox" data-relation="PRICE_GAP" checked>疑似价差</label>
+        <label><input type="checkbox" data-relation="PROMO_DIFFERENCE">促销差异</label>
+      </div></section>
+      <section class="panel"><h2>选中观测</h2><div class="detail" id="pointDetail">点击点或表格记录查看详情；再次点击空白处取消选择。</div></section>
+      <section class="panel"><h2>同商品双用户价格序列</h2><div class="compare-controls"><label>用户 A<select id="compareUserA"><option value="">请选择</option></select></label><label>用户 B<select id="compareUserB"><option value="">请选择</option></select></label></div><div id="comparison">选择两个用户假名后，按当前选中商品比较价格序列。</div></section>
+      <section class="panel"><h2>价差统计与平台复现</h2><div class="stats-list" id="statisticsList">暂无跨用户可比样本。</div></section>
+    </aside>
+  </div>
+  <section class="panel hidden" id="tablePanel"><div class="scene-head"><h2>观测明细</h2><span>点击任意行联动选中点</span></div><div class="table-wrap"><table><thead><tr><th>UTC 时间</th><th>商品 / 分类</th><th>平台</th><th>用户假名</th><th>原始价格</th><th>折算价（CNY）</th><th>促销</th><th>城市</th><th>价差状态</th></tr></thead><tbody id="pointRows"></tbody></table></div></section>
+</main>
+<div class="tooltip" id="tooltip" role="tooltip"></div>
+<script>window.SPACE_STORAGE_KEY = 'obs_api_key';</script>
+<script type="module" src="/static/js/space.js"></script>
+</body>
+</html>
