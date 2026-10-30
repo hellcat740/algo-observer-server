@@ -60,7 +60,7 @@ class SpacePageTest(unittest.TestCase):
             "THREE.Raycaster", "OrbitControls", "normalized_price_cents",
             "PRICE_GAP", "toCSV", "play", "window.innerWidth",
             "buildSemanticLayout", "userColor", "movementVector", "keydown",
-            "CylinderGeometry", "categoryOpacity", "comparisonCircleGeometry", "SpriteMaterial",
+            "CylinderGeometry", "categoryOpacity", "comparisonCircleGeometry", "SpriteMaterial", "frameCamera",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, source)

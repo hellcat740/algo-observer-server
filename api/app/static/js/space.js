@@ -163,22 +163,31 @@ function animate() {
 }
 animate();
 
-function setCamera() {
+function frameCamera() {
   pressedKeys.clear();
+  const bounds = new THREE.Box3();
+  state.layout.positions.forEach(position => bounds.expandByPoint(new THREE.Vector3(...position)));
+  const center = bounds.isEmpty() ? new THREE.Vector3(0, 0, 42) : bounds.getCenter(new THREE.Vector3());
+  const size = bounds.isEmpty() ? new THREE.Vector3(120, 120, 84) : bounds.getSize(new THREE.Vector3());
+  const verticalFit = Math.max(size.y, size.x / Math.max(camera.aspect, 0.35), 40);
   if (state.view === '2d') {
+    const distance = Math.max(220, verticalFit / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.35);
     camera.up.set(0, 1, 0);
-    camera.position.set(0, 0, 320);
-    controls.target.set(0, 0, 0);
+    controls.target.set(center.x, center.y, 0);
+    camera.position.set(center.x, center.y, distance);
     controls.enableRotate = false;
   } else {
+    const span = Math.max(verticalFit, size.z, 50);
+    const distance = Math.max(180, span / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.8);
+    const offset = new THREE.Vector3(1, -1.2, 0.85).normalize().multiplyScalar(distance);
     camera.up.set(0, 0, 1);
-    camera.position.set(155, -180, 145);
-    controls.target.set(0, 0, 42);
+    controls.target.copy(center);
+    camera.position.copy(center).add(offset);
     controls.enableRotate = true;
   }
   controls.update();
 }
-setCamera();
+frameCamera();
 
 function disposeObject(object) {
   if (!object) return;
@@ -584,6 +593,7 @@ function setData(data, mock = false) {
   renderDetail();
   populateControls();
   renderMeta();
+  frameCamera();
   applyFilters();
 }
 
@@ -659,7 +669,7 @@ function switchView(view) {
   document.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === view));
   $('visualPanel').classList.toggle('hidden', view === 'table');
   $('tablePanel').classList.toggle('hidden', view === 'table' ? false : true);
-  if (view !== 'table') { setCamera(); resize(); }
+  if (view !== 'table') { resize(); frameCamera(); }
   applyFilters();
 }
 
