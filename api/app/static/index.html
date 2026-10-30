@@ -656,8 +656,15 @@ function toast(msg) {
 }
 
 /** 统一请求封装：自动带 X-API-Key；401/403 时顶部栏红色提示 */
-async function api(path) {
-  const resp = await fetch(path, { headers: { 'X-API-Key': apiKey } });
+async function api(path, options = {}) {
+  const resp = await fetch(path, {
+    method: options.method || 'GET',
+    headers: {
+      'X-API-Key': apiKey,
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: options.body,
+  });
   if (resp.status === 401 || resp.status === 403) {
     $('apiKeyInput').classList.add('error');
     $('keyWarn').style.display = 'block';
