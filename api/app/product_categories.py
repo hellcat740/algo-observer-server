@@ -1,13 +1,13 @@
-"""商品级 DeepSeek 分类、严格结果校验和稳定缓存。"""
+"""商品级模型分类、严格结果校验和稳定缓存。"""
 from __future__ import annotations
 
 import hashlib
 import json
 import math
-import os
 from typing import Any, Callable
 from urllib.request import Request, urlopen
 
+from .classification_config import ClassificationError, provider_is_configured, provider_settings
 from .models import ProductCategoryCache
 
 
@@ -29,10 +29,6 @@ CATEGORY_TAXONOMY = {
     "其他／无法判断": ["其他", "无法判断"],
 }
 UNKNOWN_L1 = "其他／无法判断"
-
-
-class ClassificationError(RuntimeError):
-    """模型配置、传输或响应不满足分类契约。"""
 
 
 def _digest(values: list[str]) -> str:
@@ -64,7 +60,7 @@ def deduplicate_products(observations: list[Any]) -> list[Any]:
 
 
 def _model_name() -> str:
-    return os.environ.get("DEEPSEEK_MODEL", "v4.1flash")
+    return provider_settings().model
 
 
 def classification_request(product: Any) -> dict[str, Any]:
@@ -101,16 +97,15 @@ def classification_request(product: Any) -> dict[str, Any]:
     }
 
 
-def _call_deepseek(product: Any) -> dict[str, Any]:
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
-    if not api_key:
-        raise ClassificationError("未配置 DEEPSEEK_API_KEY")
-    base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+def _call_model(product: Any) -> dict[str, Any]:
+    settings = provider_settings()
+    if not settings.api_key:
+        raise ClassificationError("未配置所选商品分类服务的 API Key")
     request = Request(
-        base_url.rstrip("/") + "/chat/completions",
+        settings.base_url.rstrip("/") + "/chat/completions",
         data=json.dumps(classification_request(product), ensure_ascii=False).encode("utf-8"),
         headers={
-            "Authorization": "Bearer " + api_key,
+            "Authorization": "Bearer " + settings.api_key,
             "Content-Type": "application/json",
         },
         method="POST",
@@ -129,7 +124,10 @@ def _call_deepseek(product: Any) -> dict[str, Any]:
             raise TypeError("classification is not an object")
         return result
     except Exception as exc:
-        raise ClassificationError("DeepSeek 分类请求或响应解析失败") from exc
+        raise ClassificationError("商品分类请求或响应解析失败") from exc
+
+
+_call_deepseek = _call_model
 
 
 def _base_result(product: Any) -> dict[str, Any]:
@@ -259,9 +257,9 @@ def classify_products(
             results[key] = result
             continue
         try:
-            if caller is None and not os.environ.get("DEEPSEEK_API_KEY", "").strip():
-                raise ClassificationError("未配置 DEEPSEEK_API_KEY")
-            raw = (caller or _call_deepseek)(product)
+            if caller is None and not provider_is_configured():
+                raise ClassificationError("未配置所选商品分类服务的 API Key")
+            raw = (caller or _call_model)(product)
             result = _normalize(product, raw)
         except Exception:
             results[key] = _fallback(product)
