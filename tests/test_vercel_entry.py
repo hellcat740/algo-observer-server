@@ -58,13 +58,13 @@ class VercelEntryRoutingTest(unittest.TestCase):
     def test_landing(self):
         resp = self.client.get(vercel_url("/"))
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("一键进入我的看板", resp.text)
+        self.assertIn("让每一次", resp.text)
 
     def test_me_is_not_landing(self):
         resp = self.client.get(vercel_url("/me"))
         self.assertEqual(resp.status_code, 200)
         self.assertIn("我的看板", resp.text)
-        self.assertNotIn("一键进入我的看板", resp.text)
+        self.assertNotIn("让每一次", resp.text)
 
     def test_admin_login_is_not_landing(self):
         resp = self.client.get(vercel_url("/admin-login"))
@@ -125,7 +125,7 @@ class VercelEntryRoutingTest(unittest.TestCase):
         """裸 /api/index 不回 307（Mount 方案曾与 Vercel 重写互相触发死循环）。"""
         resp = self.client.get("/api/index", follow_redirects=False)
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("一键进入我的看板", resp.text)
+        self.assertIn("让每一次", resp.text)
 
 
 if __name__ == "__main__":

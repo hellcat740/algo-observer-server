@@ -19,7 +19,7 @@ const text = fs.readFileSync(process.env.PAGE_PATH, 'utf-8');
 
 const marker = 'async function api(';
 const rest = text.slice(text.indexOf(marker));
-const apiSrc = rest.slice(marker.length).split('\n}\n', 1)[0];
+const apiSrc = rest.slice(marker.length).split(/\r?\n\}\r?\n/, 1)[0];
 const calls = [];
 const sandboxResp = { status: 200, ok: true, json: async () => ({}) };
 const sandbox = {
