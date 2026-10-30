@@ -21,3 +21,16 @@ def test_space_interaction_and_research_markers_remain():
     assert "colorDimension" not in html
     assert "ACTIVE_COMPARISON" in html
     assert "采集用户" in html
+
+
+def test_space_and_dashboard_share_the_mixed_comparison_rule():
+    space = (STATIC / "js" / "space.js").read_text(encoding="utf-8")
+    dashboard = (STATIC / "lab.html").read_text(encoding="utf-8")
+    for source in [space, dashboard]:
+        assert "comparison-rule.js" in source
+        assert "comparePriceGroups" in source
+    assert "buildComparisonPairs" in space
+    assert "{ name: A.u, prices: A.prices }" in dashboard
+    assert "if (diffPct >= 5 && !r.smallSample)" not in dashboard
+    assert "关注 ≥5 元且 ≥5%；严重 ≥10 元且 >20%，两侧各 ≥3" in dashboard
+    assert "全局中位数统计（后端研究口径）" in (STATIC / "space.html").read_text(encoding="utf-8")

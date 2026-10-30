@@ -161,7 +161,8 @@
 
 </div>
 
-<script>
+<script type="module">
+import { comparePriceGroups } from '/static/js/comparison-rule.js';
 (function () {
   'use strict';
 
@@ -333,15 +334,21 @@
     r.userCount = users.length;
     if (users.length < 2) { r.conclusion = 'oneuser'; r.users = users; return r; }
 
-    /* 价差最大的用户对：低价侧 A、高价侧 B */
+    /* 价差最大的用户对，并复用三维空间的共享混合判定。 */
     users.sort(function (a, b) { return a.avg - b.avg; });
     var A = users[0], B = users[users.length - 1];
-    var diff = B.avg - A.avg;
-    var diffPct = A.avg > 0 ? (diff / A.avg) * 100 : 0;
-    r.pair = { A: A, B: B, diff: diff, diffPct: diffPct };
+    var comparison = comparePriceGroups(
+      { name: A.u, prices: A.prices },
+      { name: B.u, prices: B.prices }
+    );
+    var lowUser = users.find(function (user) { return user.u === comparison.low.name; });
+    var highUser = users.find(function (user) { return user.u === comparison.high.name; });
+    r.pair = { A: lowUser, B: highUser, diff: comparison.diff, diffPct: comparison.diffPct };
+    r.smallSample = comparison.smallSample;
+    r.reason = comparison.reason;
+    r.conclusion = comparison.conclusion;
 
     /* Welch t 检验（A/B 两用户价格序列） */
-    r.smallSample = (A.n < 3 || B.n < 3);
     r.welch = welchT(A.prices, B.prices);
 
     /* 分组维度 */
@@ -360,24 +367,18 @@
         }) }
     ];
 
-    /* 结论分级 */
-    if (diffPct >= 5 && !r.smallSample) r.conclusion = 'red';
-    else if (diffPct >= 5 && r.smallSample) r.conclusion = 'yellow';
-    else r.conclusion = 'green';
     return r;
   }
 
   function conclusionBadge(r) {
-    if (r.conclusion === 'red') return '<span class="badge red">🔴 疑似差异定价</span>';
-    if (r.conclusion === 'yellow') return '<span class="badge yellow">🟡 低置信疑似</span>';
+    if (r.conclusion === 'red') return '<span class="badge red">🔴 严重疑似差异定价</span>';
+    if (r.conclusion === 'yellow') return '<span class="badge yellow">🟡 关注／低置信疑似</span>';
     if (r.conclusion === 'green') return '<span class="badge green">🟢 未见明显差异</span>';
     if (r.conclusion === 'oneuser') return '<span class="badge gray">仅 1 个用户，无法比对</span>';
     return '<span class="badge gray">无有效价格数据</span>';
   }
   function conclusionText(r) {
-    if (r.conclusion === 'red') return '不同用户均价差 ≥5%，且两侧样本量均 ≥3，差异具备初步参考价值。';
-    if (r.conclusion === 'yellow') return '价差 ≥5%，但至少一侧用户样本 <3 条，小样本，仅供参考。';
-    if (r.conclusion === 'green') return '不同用户间最大均价差 <5%，当前数据未见明显差异定价迹象。';
+    if (r.reason) return r.reason;
     if (r.conclusion === 'oneuser') return '该商品目前只有一个匿名用户的观测，无法做用户间比对。';
     return '观测中缺少可用价格字段，无法分析。';
   }
@@ -425,7 +426,7 @@
     });
 
     var fxText = r.exchangeRate ? ' 美元金额按 1 USD = ' + Number(r.exchangeRate.rate).toFixed(4) + ' CNY 折算；汇率日期 ' + esc(r.exchangeRate.rate_date) + '，来源 ' + esc(r.exchangeRate.source) + (r.exchangeRate.stale ? '（最近成功汇率）' : '') + '。' : '';
-    html += '<div class="notice" style="margin-top:16px">📏 口径：价格取展示价（display_price_cents），缺失时回退到手价（actual_pay_price_cents），统一折算为人民币。' + fxText + '按匿名假名 user_pseudonym 分组算每用户均价；结论阈值 = 最大用户对价差 ≥5% 且两侧样本均 ≥3。p 值为正态近似，仅供参考。' + esc(conclusionText(r)) + '</div>';
+    html += '<div class="notice" style="margin-top:16px">📏 口径：价格取展示价（display_price_cents），缺失时回退到手价（actual_pay_price_cents），统一折算为人民币。' + fxText + '按匿名假名 user_pseudonym 分组算每用户均价；关注 ≥5 元且 ≥5%；严重 ≥10 元且 >20%，两侧各 ≥3。单项达到关注门槛也标黄；p 值为正态近似，仅供参考。' + esc(conclusionText(r)) + '</div>';
     html += '</div>';
     return html;
   }
@@ -459,7 +460,8 @@
         user_count: r.userCount,
         diff: r.pair ? r.pair.diff : null,
         diff_pct: r.pair ? r.pair.diffPct : null,
-        conclusion: r.conclusion
+        conclusion: r.conclusion,
+        reason: r.reason || conclusionText(r)
       },
       items: items
     });
