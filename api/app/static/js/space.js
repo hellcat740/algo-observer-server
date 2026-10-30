@@ -3,6 +3,7 @@ import { OrbitControls } from '/static/vendor/OrbitControls.js';
 import { filterPoints, toCSV } from './space-core.js';
 import { buildSemanticLayout, userColor } from './space-layout.js';
 import { movementVector } from './space-navigation.js';
+import { categoryOpacity, comparisonCircleGeometry } from './space-volumes.js';
 import { createMockData } from './space-mock.js';
 
 const $ = id => document.getElementById(id);
@@ -93,9 +94,15 @@ const gridPlanes = [
   createGridPlane([0, Math.PI / 2, 0]),
 ];
 
+const categoryGroup = new THREE.Group();
+categoryGroup.renderOrder = 0;
+scene.add(categoryGroup);
 const relationGroup = new THREE.Group();
 relationGroup.renderOrder = 2;
 scene.add(relationGroup);
+const comparisonGroup = new THREE.Group();
+comparisonGroup.renderOrder = 3;
+scene.add(comparisonGroup);
 let pointCloud = null;
 const raycaster = new THREE.Raycaster();
 raycaster.params.Points.threshold = 1.8;
@@ -148,6 +155,7 @@ function animate() {
   updateMovement(delta);
   controls.update();
   updateGrids();
+  updateCategoryVisuals();
   renderer.render(scene, camera);
 }
 animate();
@@ -172,8 +180,82 @@ setCamera();
 function disposeObject(object) {
   if (!object) return;
   object.geometry?.dispose();
-  if (Array.isArray(object.material)) object.material.forEach(material => material.dispose());
-  else object.material?.dispose();
+  const materials = Array.isArray(object.material) ? object.material : [object.material];
+  materials.filter(Boolean).forEach(material => {
+    material.map?.dispose();
+    material.dispose();
+  });
+}
+
+function clearGroup(group) {
+  while (group.children.length) {
+    const child = group.children[0];
+    group.remove(child);
+    disposeObject(child);
+  }
+}
+
+function categoryLabel(category) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const context = canvas.getContext('2d');
+  context.clearRect(0, 0, 512, 128);
+  context.font = `${category.level === 1 ? 600 : 500} ${category.level === 1 ? 48 : 40}px "Microsoft YaHei", sans-serif`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillStyle = category.level === 1 ? '#e1d7c8' : '#b8ad9d';
+  context.fillText(category.level === 1 ? category.l1 : category.l2, 256, 64, 480);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const material = new THREE.SpriteMaterial({map: texture, transparent: true, opacity: 0.88, depthWrite: false});
+  const sprite = new THREE.Sprite(material);
+  sprite.position.set(category.center[0], category.center[1], 0.25);
+  sprite.center.set(0.5, 0);
+  sprite.renderOrder = 4;
+  sprite.userData = {type: 'label', level: category.level, key: category.key};
+  return sprite;
+}
+
+function renderCategories() {
+  clearGroup(categoryGroup);
+  const visible = new Set();
+  state.filtered.forEach(point => {
+    visible.add(`L1:${point.category_l1 || '其他／无法判断'}`);
+    visible.add(`L2:${point.category_l1 || '其他／无法判断'}/${point.category_l2 || '无法判断'}`);
+  });
+  state.layout.categories.filter(category => visible.has(category.key)).forEach(category => {
+    const geometry = new THREE.CylinderGeometry(category.radius, category.radius, category.height, 64, 1, true);
+    const material = new THREE.MeshBasicMaterial({
+      color: category.level === 1 ? 0x635d54 : 0x776b57,
+      transparent: true, opacity: categoryOpacity(category.level, 240),
+      side: THREE.DoubleSide, depthWrite: false,
+    });
+    const cylinder = new THREE.Mesh(geometry, material);
+    cylinder.rotation.x = Math.PI / 2;
+    cylinder.position.set(category.center[0], category.center[1], category.base + category.height / 2);
+    cylinder.renderOrder = 0;
+    cylinder.userData = {type: 'volume', level: category.level, key: category.key};
+    categoryGroup.add(cylinder);
+    categoryGroup.add(categoryLabel(category));
+  });
+  updateCategoryVisuals();
+}
+
+function updateCategoryVisuals() {
+  const selectedL2 = state.selectedPoint ? `L2:${state.selectedPoint.category_l1}/${state.selectedPoint.category_l2}` : null;
+  categoryGroup.children.forEach(object => {
+    const distance = camera.position.distanceTo(object.position);
+    if (object.userData.type === 'volume') {
+      object.visible = state.view === '3d';
+      object.material.opacity = categoryOpacity(object.userData.level, distance);
+    } else {
+      const worldHeight = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const height = THREE.MathUtils.clamp(worldHeight * 0.04, 2.5, 13);
+      object.scale.set(height * 4, height, 1);
+      object.visible = object.userData.level === 1 || distance < 150 || object.userData.key === selectedL2;
+    }
+  });
 }
 
 function renderRelations(positionById) {
@@ -222,6 +304,7 @@ function renderScene() {
   }
   const points = state.filtered;
   $('emptyState').hidden = points.length > 0;
+  renderCategories();
   if (!points.length) {
     renderRelations(new Map());
     renderUserLegend();
