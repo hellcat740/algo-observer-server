@@ -32,10 +32,11 @@ class VisualizationPageTest(unittest.TestCase):
         self.assertIn("需人工复核", self.text)
         self.assertNotIn("DEEPSEEK_API_KEY", self.text)
 
-    def test_console_and_analysis_link_to_visualization(self):
+    def test_only_analysis_links_to_visualization(self):
         index = (ROOT / "api/app/static/index.html").read_text(encoding="utf-8")
         analysis = (ROOT / "api/app/static/analysis.html").read_text(encoding="utf-8")
-        self.assertIn('href="/visualization"', index)
+        sidebar = index.split('<nav class="sidebar">', 1)[1].split("</nav>", 1)[0]
+        self.assertNotIn('href="/visualization"', sidebar)
         self.assertIn('href="/visualization"', analysis)
 
     def test_page_route_returns_visualization(self):
