@@ -13,5 +13,11 @@ def test_space_interaction_and_research_markers_remain():
     js = (STATIC / "js" / "space.js").read_text(encoding="utf-8")
     for marker in ["data-relation", "data-view", "platformFilter", "categoryFilter", "playPosition", "统计疑似不等于法律认定"]:
         assert marker in html
-    for marker in ["businessCoordinates", "featureProjection", "filterPoints", "toCSV", "/api/space/points"]:
+    for marker in ["buildSemanticLayout", "movementVector", "userColor", "filterPoints", "toCSV", "/api/space/points"]:
         assert marker in js
+    for removed in ["businessCoordinates", "featureProjection", "coordinateMode", "colorDimension", "AxesHelper"]:
+        assert removed not in js
+    assert "coordinateMode" not in html
+    assert "colorDimension" not in html
+    assert "ACTIVE_COMPARISON" in html
+    assert "采集用户" in html

@@ -59,26 +59,23 @@ class SpacePageTest(unittest.TestCase):
             "THREE.Points", "THREE.BufferGeometry", "THREE.LineSegments",
             "THREE.Raycaster", "OrbitControls", "normalized_price_cents",
             "PRICE_GAP", "toCSV", "play", "window.innerWidth",
+            "buildSemanticLayout", "userColor", "movementVector", "keydown",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, source)
+        for removed in ("businessCoordinates", "featureProjection", "AxesHelper", "coordinateMode", "colorDimension"):
+            self.assertNotIn(removed, source)
         subprocess.run([NODE, "--check", str(API_DIR / "app" / "static" / "js" / "space.js")], check=True)
 
-    def test_pure_coordinate_filter_and_csv_behavior(self):
+    def test_pure_filter_and_csv_behavior(self):
         core = (API_DIR / "app" / "static" / "js" / "space-core.js").read_bytes()
         module = base64.b64encode(core).decode("ascii")
         script = """
-import { businessCoordinates, featureProjection, filterPoints, toCSV } from 'data:text/javascript;base64,%s';
+import { filterPoints, toCSV } from 'data:text/javascript;base64,%s';
 const points = [
  {observation_id:'a',fetch_ts:'2026-10-29T00:00:00Z',user_pseudonym:'u_a',product_key:'p1',product_id:'P1',product_name:'手机, "Pro"',category_l1:'手机数码',platform_code:'jd',currency:'CNY',basis_price_cents:1000,normalized_price_cents:1000,price_deviation:-0.1,promo_type:'none',promo_label:'',ip_city:'上海',price_gap_direction:'LOW'},
  {observation_id:'b',fetch_ts:'2026-10-29T01:00:00Z',user_pseudonym:'u_b',product_key:'p1',product_id:'P1',product_name:'手机',category_l1:'手机数码',platform_code:'jd',currency:'CNY',basis_price_cents:1200,normalized_price_cents:1200,price_deviation:0.1,promo_type:'coupon',promo_label:'券',ip_city:'北京',price_gap_direction:'HIGH',price_gap_suspected:true}
 ];
-const coords = businessCoordinates(points);
-if (coords.length !== 2 || coords[0].position[0] !== -50 || coords[1].position[0] !== 50) throw new Error('business coordinates');
-if (coords[0].position[2] >= 0 || coords[1].position[2] <= 0) throw new Error('price deviation');
-const projection = featureProjection(points[0]);
-if (projection.length !== 3 || projection.some(value => !Number.isFinite(value))) throw new Error('projection');
-if (JSON.stringify(projection) !== JSON.stringify(featureProjection(points[0]))) throw new Error('not deterministic');
 if (filterPoints(points, {platform:'jd',promo:'yes'}).length !== 1) throw new Error('promo filter');
 if (filterPoints(points, {search:'pro',city:'上海'}).length !== 1) throw new Error('search filter');
 if (filterPoints(points, {start:'2026-10-29T00:30:00Z'}).length !== 1) throw new Error('time filter');
@@ -89,7 +86,7 @@ console.log('space core behavior ok');
 """ % module
         result = subprocess.run(
             [NODE, "--input-type=module"],
-            input=script, capture_output=True, text=True,
+            input=script, capture_output=True, text=True, encoding="utf-8",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("space core behavior ok", result.stdout)

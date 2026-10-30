@@ -1,12 +1,15 @@
 import * as THREE from 'three';
 import { OrbitControls } from '/static/vendor/OrbitControls.js';
-import { businessCoordinates, featureProjection, filterPoints, toCSV } from './space-core.js';
+import { filterPoints, toCSV } from './space-core.js';
+import { buildSemanticLayout, userColor } from './space-layout.js';
+import { movementVector } from './space-navigation.js';
 import { createMockData } from './space-mock.js';
 
 const $ = id => document.getElementById(id);
-const emptyData = () => ({points: [], edges: [], statistics: [], platform_replication: {}, meta: {warnings: []}});
+const emptyData = () => ({points: [], edges: [], statistics: [], category_taxonomy: {}, platform_replication: {}, meta: {warnings: []}});
 const state = {
-  data: emptyData(), filtered: [], selectedProduct: null, selectedPoint: null,
+  data: emptyData(), filtered: [], layout: buildSemanticLayout([], {}),
+  selectedProduct: null, selectedPoint: null,
   view: window.innerWidth < 700 ? '2d' : '3d', mock: false, playing: false,
   playTimer: null, classificationTimer: null, visibleEdges: 0,
 };
@@ -14,16 +17,11 @@ const relationColors = {
   SAME_PRODUCT: 0x8fa8b8, SAME_USER: 0xa89ab8, SAME_USER_PRODUCT: 0x72b5aa,
   TIME_NEIGHBOR: 0x9b8877, PRICE_GAP: 0xeaae35, PROMO_DIFFERENCE: 0xd98b62,
 };
-const palette = ['#eaae35','#e47c61','#72b5aa','#8fa8b8','#a89ab8','#8cab78','#d98b62','#7fbbc0','#c7a66f','#a6b58a','#b0a199','#7fd4b5','#e68a68','#b5a3c7','#c8b8a7'];
 const statusNames = {idle: '分类空闲', running: '后台分类中', success: '分类已更新', error: '后台分类失败', not_configured: '分类服务未配置'};
+const pressedKeys = new Set();
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-}
-function hash(text) {
-  let value = 0;
-  for (const char of String(text || 'unknown')) value = (Math.imul(value, 31) + char.codePointAt(0)) >>> 0;
-  return value;
 }
 function formatPrice(value, currency = 'CNY') {
   return Number.isFinite(value) ? `${(value / 100).toFixed(2)} ${currency}` : '—';
@@ -38,9 +36,9 @@ function inputUTC(value) {
 }
 function setStatus(text) { $('classificationStatus').textContent = text; }
 
-// One THREE.Points draw call and one THREE.LineSegments per enabled relation type.
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 2000);
+const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 2400);
+camera.up.set(0, 0, 1);
 const renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setClearColor(0x211811, 0);
@@ -50,19 +48,60 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.screenSpacePanning = true;
 controls.minDistance = 20;
-controls.maxDistance = 600;
-const grid = new THREE.GridHelper(120, 12, 0x8b6535, 0x493522);
-grid.rotation.x = Math.PI / 2;
-grid.position.z = -12;
-scene.add(grid);
-scene.add(new THREE.AxesHelper(18));
+controls.maxDistance = 900;
+
+function createGridPlane(rotation) {
+  const geometry = new THREE.PlaneGeometry(2000, 2000);
+  const material = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    uniforms: {
+      uStep: {value: 10},
+      uColor: {value: new THREE.Color(0x6f5a43)},
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform float uStep;
+      uniform vec3 uColor;
+      void main() {
+        vec2 coord = (vUv - 0.5) * 2000.0 / uStep;
+        vec2 width = fwidth(coord);
+        vec2 grid = abs(fract(coord - 0.5) - 0.5) / max(width, vec2(0.0001));
+        float line = 1.0 - min(min(grid.x, grid.y), 1.0);
+        float fade = 1.0 - smoothstep(0.18, 0.5, distance(vUv, vec2(0.5)));
+        float alpha = line * fade * 0.16;
+        if (alpha < 0.002) discard;
+        gl_FragColor = vec4(uColor, alpha);
+      }`,
+  });
+  const plane = new THREE.Mesh(geometry, material);
+  plane.rotation.set(...rotation);
+  plane.renderOrder = -10;
+  scene.add(plane);
+  return plane;
+}
+const gridPlanes = [
+  createGridPlane([0, 0, 0]),
+  createGridPlane([Math.PI / 2, 0, 0]),
+  createGridPlane([0, Math.PI / 2, 0]),
+];
+
 const relationGroup = new THREE.Group();
+relationGroup.renderOrder = 2;
 scene.add(relationGroup);
 let pointCloud = null;
 const raycaster = new THREE.Raycaster();
 raycaster.params.Points.threshold = 1.8;
 const pointer = new THREE.Vector2();
 let pointerDown = null;
+const clock = new THREE.Clock();
 
 function resize() {
   const width = Math.max(1, $('scene').clientWidth);
@@ -74,39 +113,61 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+function updateMovement(delta) {
+  if (state.view !== '3d' || !pressedKeys.size) return;
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+  const distance = camera.position.distanceTo(controls.target);
+  const speed = Math.max(12, Math.min(120, distance * 0.55));
+  const [x, y] = movementVector(pressedKeys, [forward.x, forward.y], [right.x, right.y], speed, delta);
+  camera.position.x += x;
+  camera.position.y += y;
+  controls.target.x += x;
+  controls.target.y += y;
+}
+
+function updateGrids() {
+  const distance = camera.position.distanceTo(controls.target);
+  const step = Math.max(0.1, 10 ** Math.floor(Math.log10(Math.max(1, distance / 8))));
+  gridPlanes.forEach((plane, index) => {
+    plane.visible = state.view === '3d' || index === 0;
+    plane.material.uniforms.uStep.value = step;
+    plane.position.set(
+      Math.round(controls.target.x / step) * step,
+      Math.round(controls.target.y / step) * step,
+      Math.round(controls.target.z / step) * step,
+    );
+  });
+}
+
 function animate() {
   requestAnimationFrame(animate);
+  const delta = Math.min(clock.getDelta(), 0.05);
+  if (document.hidden) return;
+  updateMovement(delta);
   controls.update();
+  updateGrids();
   renderer.render(scene, camera);
 }
 animate();
 
 function setCamera() {
+  pressedKeys.clear();
   if (state.view === '2d') {
-    camera.position.set(0, 0, 135);
     camera.up.set(0, 1, 0);
+    camera.position.set(0, 0, 320);
+    controls.target.set(0, 0, 0);
     controls.enableRotate = false;
   } else {
-    camera.position.set(75, 65, 115);
-    camera.up.set(0, 1, 0);
+    camera.up.set(0, 0, 1);
+    camera.position.set(155, -180, 145);
+    controls.target.set(0, 0, 42);
     controls.enableRotate = true;
   }
-  controls.target.set(0, 0, 0);
   controls.update();
 }
 setCamera();
-
-function colorFor(point) {
-  const dimension = $('colorDimension').value;
-  if (dimension === 'gap') {
-    if (point.price_gap_direction === 'HIGH') return '#e47c61';
-    if (point.price_gap_direction === 'LOW') return '#72b5aa';
-    return '#9b8877';
-  }
-  const key = dimension === 'category' ? (point.category_l1 || '未分类／待分类')
-    : dimension === 'user' ? point.user_pseudonym : point.platform_code;
-  return palette[hash(key) % palette.length];
-}
 
 function disposeObject(object) {
   if (!object) return;
@@ -131,16 +192,26 @@ function renderRelations(positionById) {
   state.visibleEdges = 0;
   byType.forEach((edges, type) => {
     const positions = [];
-    edges.forEach(edge => {
-      positions.push(...positionById.get(edge.source), ...positionById.get(edge.target));
-    });
+    edges.forEach(edge => positions.push(...positionById.get(edge.source), ...positionById.get(edge.target)));
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    const material = new THREE.LineBasicMaterial({color: relationColors[type] || 0x8093a8, transparent: true, opacity: type === 'PRICE_GAP' ? 0.72 : 0.24});
-    relationGroup.add(new THREE.LineSegments(geometry, material));
+    const material = new THREE.LineBasicMaterial({color: relationColors[type] || 0x8093a8, transparent: true, opacity: type === 'PRICE_GAP' ? 0.72 : 0.24, depthWrite: false});
+    const lines = new THREE.LineSegments(geometry, material);
+    lines.renderOrder = 2;
+    relationGroup.add(lines);
     state.visibleEdges += edges.length;
   });
   $('edgeMeta').textContent = `${state.visibleEdges} 条可见关系 / ${state.data.edges.length} 条已返回`;
+}
+
+function renderUserLegend() {
+  const users = [...new Set(state.filtered.map(point => point.user_pseudonym || '未知用户'))].sort();
+  const selected = new Set([$('compareUserA').value, $('compareUserB').value]);
+  $('userLegend').innerHTML = users.length ? users.map(user => {
+    const color = userColor(user === '未知用户' ? '' : user);
+    const weight = selected.has(user) ? 'font-weight:700' : '';
+    return `<span style="color:${color};${weight}">● ${esc(user)}</span>`;
+  }).join('') : '暂无可见用户';
 }
 
 function renderScene() {
@@ -153,12 +224,9 @@ function renderScene() {
   $('emptyState').hidden = points.length > 0;
   if (!points.length) {
     renderRelations(new Map());
+    renderUserLegend();
     return;
   }
-  const mode = $('coordinateMode').value;
-  const coordinates = mode === 'feature'
-    ? points.map(point => ({id: point.observation_id, position: featureProjection(point)}))
-    : businessCoordinates(points);
   const positionById = new Map();
   const positions = new Float32Array(points.length * 3);
   const colors = new Float32Array(points.length * 3);
@@ -166,15 +234,15 @@ function renderScene() {
   const alphas = new Float32Array(points.length);
   const borders = new Float32Array(points.length);
   points.forEach((point, index) => {
-    const coordinate = coordinates[index].position;
+    const coordinate = state.layout.positions.get(point.observation_id) || [0, 0, 0];
     const position = [coordinate[0], coordinate[1], state.view === '2d' ? 0 : coordinate[2]];
     positionById.set(point.observation_id, position);
     positions.set(position, index * 3);
-    const color = new THREE.Color(colorFor(point));
+    const color = new THREE.Color(userColor(point.user_pseudonym));
     colors.set([color.r, color.g, color.b], index * 3);
     const selected = !state.selectedProduct || state.selectedProduct === point.product_key;
     sizes[index] = state.selectedPoint?.observation_id === point.observation_id ? 15 : selected ? 9 : 5;
-    alphas[index] = selected ? 0.92 : 0.10;
+    alphas[index] = selected ? 0.94 : 0.10;
     borders[index] = Number.isFinite(point.normalized_price_cents) ? 0 : 1;
   });
   const geometry = new THREE.BufferGeometry();
@@ -214,8 +282,10 @@ function renderScene() {
       }`,
   });
   pointCloud = new THREE.Points(geometry, material);
+  pointCloud.renderOrder = 10;
   scene.add(pointCloud);
   renderRelations(positionById);
+  renderUserLegend();
 }
 
 function currentFilters() {
@@ -239,9 +309,6 @@ function currentFilters() {
 function applyFilters() {
   state.filtered = filterPoints(state.data.points, currentFilters());
   $('visibleCount').textContent = `${state.filtered.length} 个可见点`;
-  $('axisNote').textContent = $('coordinateMode').value === 'feature'
-    ? '确定性特征哈希投影（非 PCA / t-SNE / UMAP）'
-    : state.view === '2d' ? 'X：时间　Y：分类（2D 压平价格偏差）' : 'X：时间　Y：分类　Z：相对中位价偏差';
   renderScene();
   renderTable();
   renderStatistics();
@@ -326,7 +393,7 @@ function renderComparison() {
     const y = max === min ? 60 : 105 - (value - min) / (max - min) * 90;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(' ');
-  $('comparison').innerHTML = `<svg viewBox="0 0 300 125" width="100%" height="125" role="img" aria-label="双用户价格序列"><line x1="10" y1="105" x2="290" y2="105" stroke="#34506e"/><polyline points="${polyline(a)}" fill="none" stroke="#46d9d0" stroke-width="2"/><polyline points="${polyline(b)}" fill="none" stroke="#ff7185" stroke-width="2"/></svg><div><span class="low">● ${esc(userA)}</span> ${a.length} 点　<span class="high">● ${esc(userB)}</span> ${b.length} 点</div><div>同一商品、各自 UTC 时间序列；纵轴使用可比折算价，缺失时仅作原币展示。</div>`;
+  $('comparison').innerHTML = `<svg viewBox="0 0 300 125" width="100%" height="125" role="img" aria-label="双用户价格序列"><line x1="10" y1="105" x2="290" y2="105" stroke="#34506e"/><polyline points="${polyline(a)}" fill="none" stroke="${userColor(userA)}" stroke-width="2"/><polyline points="${polyline(b)}" fill="none" stroke="${userColor(userB)}" stroke-width="2"/></svg><div><span style="color:${userColor(userA)}">● ${esc(userA)}</span> ${a.length} 点　<span style="color:${userColor(userB)}">● ${esc(userB)}</span> ${b.length} 点</div><div>同一商品、各自 UTC 时间序列；纵轴使用可比折算价，缺失时仅作原币展示。</div>`;
 }
 
 function populateControls() {
@@ -364,6 +431,7 @@ function renderMeta() {
 function setData(data, mock = false) {
   stopPlay();
   state.data = data;
+  state.layout = buildSemanticLayout(data.points || [], data.category_taxonomy || {});
   state.mock = mock;
   state.selectedPoint = null;
   state.selectedProduct = null;
@@ -479,15 +547,30 @@ renderer.domElement.addEventListener('pointerup', event => {
   else { state.selectedPoint = null; state.selectedProduct = null; renderDetail(); applyFilters(); }
 });
 
-['platformFilter','categoryFilter','userFilter','cityFilter','promoFilter','gapFilter','searchInput','coordinateMode','colorDimension'].forEach(id => {
+function editableTarget(target) {
+  return target instanceof HTMLElement && (target.matches('input,select,textarea,[contenteditable="true"]') || target.closest('[contenteditable="true"]'));
+}
+window.addEventListener('keydown', event => {
+  if (state.view !== '3d' || editableTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
+  const key = event.key.toLowerCase();
+  if (!['w', 'a', 's', 'd'].includes(key)) return;
+  pressedKeys.add(key);
+  event.preventDefault();
+});
+window.addEventListener('keyup', event => pressedKeys.delete(event.key.toLowerCase()));
+window.addEventListener('blur', () => pressedKeys.clear());
+document.addEventListener('visibilitychange', () => {
+  pressedKeys.clear();
+  if (document.hidden && state.playing) stopPlay();
+});
+
+['platformFilter','categoryFilter','userFilter','cityFilter','promoFilter','gapFilter','searchInput'].forEach(id => {
   $(id).addEventListener(id === 'searchInput' || id === 'userFilter' || id === 'cityFilter' ? 'input' : 'change', applyFilters);
 });
-$('coordinateMode').addEventListener('change', () => { setCamera(); applyFilters(); });
-$('colorDimension').addEventListener('change', applyFilters);
 ['startTime','endTime'].forEach(id => $(id).addEventListener('change', applyFilters));
 document.querySelectorAll('[data-relation]').forEach(input => input.addEventListener('change', applyFilters));
 document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => switchView(button.dataset.view)));
-['compareUserA','compareUserB'].forEach(id => $(id).addEventListener('change', renderComparison));
+['compareUserA','compareUserB'].forEach(id => $(id).addEventListener('change', applyFilters));
 $('playPosition').addEventListener('input', () => { updatePlayLabel(); applyFilters(); });
 $('playButton').addEventListener('click', play);
 $('refreshButton').addEventListener('click', loadData);

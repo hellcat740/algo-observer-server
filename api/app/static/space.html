@@ -18,7 +18,7 @@
   <div class="header-status" id="classificationStatus">尚未加载</div>
 </header>
 <main class="wrap">
-  <div class="notice"><strong>研究边界：</strong>统计疑似不等于法律认定，可视化结果仅用于研究线索筛查。小样本仅作描述，不输出显著性结论；高维坐标是确定性特征投影，不是 PCA、t-SNE 或 UMAP。</div>
+  <div class="notice"><strong>研究边界：</strong>统计疑似不等于法律认定，可视化结果仅用于研究线索筛查。小样本仅作描述，不输出显著性结论；XY 是固定分类语义平面，Z 是采集时间，名称向量只用于小类内部的确定性局部分散。</div>
   <section class="panel" aria-label="筛选工具">
     <div class="toolbar">
       <label>平台<select id="platformFilter"><option value="">全部平台</option></select></label>
@@ -28,8 +28,6 @@
       <label>促销<select id="promoFilter"><option value="">全部</option><option value="yes">有促销</option><option value="no">无促销</option></select></label>
       <label>价差<select id="gapFilter"><option value="">全部</option><option value="yes">疑似价差</option><option value="high">高价侧</option><option value="low">低价侧</option></select></label>
       <label>搜索商品<input id="searchInput" class="search" placeholder="商品名、ID 或卖家"></label>
-      <label>坐标模式<select id="coordinateMode"><option value="business">业务坐标</option><option value="feature">特征投影</option></select></label>
-      <label>颜色维度<select id="colorDimension"><option value="platform">平台</option><option value="category">分类</option><option value="user">用户</option><option value="gap">价差方向</option></select></label>
       <div class="segment" aria-label="视图切换"><button class="btn active" data-view="3d">3D</button><button class="btn" data-view="2d">2D</button><button class="btn" data-view="table">表格</button></div>
       <button class="btn secondary" id="refreshButton">刷新</button>
       <button class="btn secondary" id="mockButton">载入演示数据</button>
@@ -40,9 +38,9 @@
   </section>
   <div class="layout">
     <section class="panel scene-panel" id="visualPanel">
-      <div class="scene-head"><h2 id="viewTitle">观测点云</h2><span>拖动旋转 · 滚轮缩放 · 右键平移 · 点击商品突出</span><span id="visibleCount"></span></div>
+      <div class="scene-head"><h2 id="viewTitle">观测点云</h2><span>拖动旋转 · 滚轮缩放 · WASD 平移 · 右键平移 · 点击商品突出</span><span id="visibleCount"></span></div>
       <div id="scene"><div class="empty" id="emptyState"><div>暂无符合当前条件的观测点</div><small>无真实数据时，可主动载入明确标注的演示数据</small></div></div>
-      <div class="axis-note" id="axisNote">X：时间　Y：分类　Z：相对中位价偏差</div>
+      <div class="axis-note" id="axisNote">X／Y：分类语义平面　Z：采集时间（UTC）</div>
       <div class="time-controls">
         <label>开始时间（UTC）<input type="datetime-local" id="startTime"></label>
         <label>结束时间（UTC）<input type="datetime-local" id="endTime"></label>
@@ -59,7 +57,9 @@
         <label><input type="checkbox" data-relation="TIME_NEIGHBOR">时间邻近</label>
         <label><input type="checkbox" data-relation="PRICE_GAP" checked>疑似价差</label>
         <label><input type="checkbox" data-relation="PROMO_DIFFERENCE">促销差异</label>
+        <label><input type="checkbox" data-relation="ACTIVE_COMPARISON" checked>当前对比</label>
       </div></section>
+      <section class="panel"><h2>采集用户</h2><div class="relations" id="userLegend">暂无可见用户</div></section>
       <section class="panel"><h2>选中观测</h2><div class="detail" id="pointDetail">点击点或表格记录查看详情；再次点击空白处取消选择。</div></section>
       <section class="panel"><h2>同商品双用户价格序列</h2><div class="compare-controls"><label>用户 A<select id="compareUserA"><option value="">请选择</option></select></label><label>用户 B<select id="compareUserB"><option value="">请选择</option></select></label></div><div id="comparison">选择两个用户假名后，按当前选中商品比较价格序列。</div></section>
       <section class="panel"><h2>价差统计与平台复现</h2><div class="stats-list" id="statisticsList">暂无跨用户可比样本。</div></section>
