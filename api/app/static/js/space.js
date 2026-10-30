@@ -11,10 +11,10 @@ const state = {
   playTimer: null, classificationTimer: null, visibleEdges: 0,
 };
 const relationColors = {
-  SAME_PRODUCT: 0x63a4ff, SAME_USER: 0x9d8cff, SAME_USER_PRODUCT: 0x46d9d0,
-  TIME_NEIGHBOR: 0x8093a8, PRICE_GAP: 0xff7185, PROMO_DIFFERENCE: 0xf6bd60,
+  SAME_PRODUCT: 0x8fa8b8, SAME_USER: 0xa89ab8, SAME_USER_PRODUCT: 0x72b5aa,
+  TIME_NEIGHBOR: 0x9b8877, PRICE_GAP: 0xeaae35, PROMO_DIFFERENCE: 0xd98b62,
 };
-const palette = ['#63a4ff','#ff7185','#46d9d0','#f6bd60','#9d8cff','#69db7c','#ef8fca','#70c7e8','#d7a66f','#a6d96a','#b0a199','#7fd4b5','#e68a68','#8fa8e8','#a8b3c2'];
+const palette = ['#eaae35','#e47c61','#72b5aa','#8fa8b8','#a89ab8','#8cab78','#d98b62','#7fbbc0','#c7a66f','#a6b58a','#b0a199','#7fd4b5','#e68a68','#b5a3c7','#c8b8a7'];
 const statusNames = {idle: '分类空闲', running: '后台分类中', success: '分类已更新', error: '后台分类失败', not_configured: '分类服务未配置'};
 
 function esc(value) {
@@ -43,7 +43,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 2000);
 const renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-renderer.setClearColor(0x07111f, 0);
+renderer.setClearColor(0x211811, 0);
 $('scene').appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -51,7 +51,7 @@ controls.dampingFactor = 0.08;
 controls.screenSpacePanning = true;
 controls.minDistance = 20;
 controls.maxDistance = 600;
-const grid = new THREE.GridHelper(120, 12, 0x28425f, 0x172b42);
+const grid = new THREE.GridHelper(120, 12, 0x8b6535, 0x493522);
 grid.rotation.x = Math.PI / 2;
 grid.position.z = -12;
 scene.add(grid);
@@ -99,9 +99,9 @@ setCamera();
 function colorFor(point) {
   const dimension = $('colorDimension').value;
   if (dimension === 'gap') {
-    if (point.price_gap_direction === 'HIGH') return '#ff7185';
-    if (point.price_gap_direction === 'LOW') return '#46d9d0';
-    return '#8093a8';
+    if (point.price_gap_direction === 'HIGH') return '#e47c61';
+    if (point.price_gap_direction === 'LOW') return '#72b5aa';
+    return '#9b8877';
   }
   const key = dimension === 'category' ? (point.category_l1 || '未分类／待分类')
     : dimension === 'user' ? point.user_pseudonym : point.platform_code;

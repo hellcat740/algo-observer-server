@@ -97,6 +97,28 @@ nav.sidebar a.active { color: var(--persimmon-dark); background: #F5E5D5; border
 .steps li::marker { color: var(--persimmon); font-weight: 750; }
 .note { color: #684B18; background: #FBF2D8; border-color: #E6CD91; }
 
+/* Warm instrument chamber for the existing Three.js research workspace. */
+.instrument-page { --bg:#211811; --panel:#2B211B; --panel2:#3A2C22; --line:#5B4637; --text:#F6F0E3; --muted:#C2AF9D; --blue:#EAAE35; --cyan:#72B5AA; --amber:#EAAE35; --red:#E47C61; --green:#8CAB78; background:var(--bg); color:var(--text); }
+.instrument-page header { background:#1B1410; }
+.instrument-page .panel { background:var(--panel); border-color:var(--line); box-shadow:0 16px 44px rgba(0,0,0,.14); }
+.instrument-page .notice { color:#E7D5BD; background:#35281E; border-color:#6B5035; }
+.instrument-page .notice strong, .instrument-page .stat-card strong { color:var(--paper-strong); }
+.instrument-page .toolbar input, .instrument-page .toolbar select, .instrument-page .time-controls input, .instrument-page .compare-controls select { color:var(--text); background:#211811; border-color:var(--line) !important; }
+.instrument-page .btn { color:var(--text); background:#3A2C22; border-color:#6B5035; }
+.instrument-page .btn:hover { color:var(--paper-strong); background:#513A27; border-color:var(--honey); }
+.instrument-page .btn.secondary { background:transparent; }
+.instrument-page .btn.active { color:var(--ink); background:var(--honey); border-color:var(--honey); }
+.instrument-page .badge { color:var(--honey-soft); background:#493522; }
+.instrument-page .badge.mock { color:#2B211B; background:var(--honey); }
+.instrument-page #scene { background:radial-gradient(circle at 50% 28%,#493322,#211811 72%); }
+.instrument-page .axis-note { color:var(--honey-soft); background:rgba(27,20,16,.78); }
+.instrument-page th { color:var(--honey-soft); background:#35281E; }
+.instrument-page tbody tr:hover { background:#3A2C22; }
+.instrument-page .tooltip { color:var(--text); background:rgba(27,20,16,.97); border-color:#6B5035; }
+.instrument-page .detail dd { color:var(--text); }
+.instrument-page .high { color:var(--red); }
+.instrument-page .low { color:var(--cyan); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;
