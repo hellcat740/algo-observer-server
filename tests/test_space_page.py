@@ -102,11 +102,12 @@ import { createMockData } from 'data:text/javascript;base64,%s';
 const data = createMockData();
 if (data.statistics.some(stat => stat.n_a >= 3 && stat.n_b >= 3 && stat.status !== 'TESTS_AVAILABLE')) throw new Error('mock sample status');
 if (data.points.some(point => point.statistical_status !== 'TESTS_AVAILABLE')) throw new Error('mock point status');
+if (!data.category_taxonomy || !data.category_taxonomy['手机数码']?.includes('手机')) throw new Error('mock taxonomy');
 console.log('mock statistics ok');
 """ % module
         result = subprocess.run(
             [NODE, "--input-type=module"], input=script,
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("mock statistics ok", result.stdout)

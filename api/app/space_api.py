@@ -16,6 +16,7 @@ from .database import SessionLocal, get_db
 from .exchange_rates import ExchangeRateUnavailable, latest_rate
 from .models import Observation
 from .product_categories import (
+    CATEGORY_TAXONOMY,
     cache_key,
     classify_products,
     deduplicate_products,
@@ -201,6 +202,7 @@ def space_points(
         "points": points,
         "edges": edges,
         "statistics": statistics,
+        "category_taxonomy": CATEGORY_TAXONOMY,
         "platform_replication": platform_replication(points, statistics),
         "meta": {
             "total": int(total),

@@ -136,6 +136,13 @@ class SpaceApiTest(unittest.TestCase):
         self.assertIn("jd", body["platform_replication"])
         self.assertFalse(body["platform_replication"]["jd"]["suspected"])
 
+    def test_points_include_the_fixed_category_taxonomy(self):
+        response = self.get()
+        self.assertEqual(response.status_code, 200, response.text)
+        taxonomy = response.json()["category_taxonomy"]
+        self.assertIn("手机", taxonomy["手机数码"])
+        self.assertIn("笔记本电脑", taxonomy["电脑办公"])
+
     def test_point_limit_returns_latest_and_separate_total(self):
         with self.Session() as db:
             db.add(make_observation("space-3", USER_A, 11000, 2))
