@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 720" role="img" aria-labelledby="title desc">
+  <title id="title">利益与算法的平衡</title>
+  <desc id="desc">左侧价格与利益符号，右侧芯片与算法节点</desc>
+  <defs>
+    <linearGradient id="metal" x1="0" x2="1"><stop stop-color="#8F3F0E"/><stop offset=".48" stop-color="#F6D98A"/><stop offset="1" stop-color="#B85516"/></linearGradient>
+    <linearGradient id="pan" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#EAAE35"/><stop offset="1" stop-color="#B85516"/></linearGradient>
+  </defs>
+  <ellipse cx="360" cy="650" rx="190" ry="24" fill="#251C17" opacity=".08"/>
+  <path d="M275 640h170l-28-32H303zM310 608h100l-20-34h-60z" fill="url(#metal)"/>
+  <path d="M342 574V242h36v332z" fill="url(#metal)"/>
+  <circle cx="360" cy="224" r="31" fill="#F6F0E3" stroke="url(#metal)" stroke-width="12"/>
+  <path d="M360 202c-93 0-139 28-218 12M360 202c93 0 139 28 218 12" fill="none" stroke="url(#metal)" stroke-width="17" stroke-linecap="round"/>
+  <g fill="none" stroke="#8F3F0E" stroke-width="3">
+    <path d="M142 214l-72 250M142 214l72 250M142 214v250"/>
+    <path d="M578 214l-72 250M578 214l72 250M578 214v250"/>
+  </g>
+  <path d="M54 462q88 100 176 0zM490 462q88 100 176 0z" fill="url(#pan)"/>
+  <g fill="#B85516" stroke="#FFFDF7" stroke-width="3">
+    <circle cx="118" cy="438" r="28"/><circle cx="158" cy="442" r="28"/>
+    <path d="M108 438h20m-10-10v20M148 442h20m-10-10v20"/>
+  </g>
+  <g fill="#251C17" stroke="#EAAE35" stroke-width="4">
+    <rect x="542" y="402" width="72" height="62" rx="10"/>
+    <path d="M554 402v-14m20 14v-14m20 14v-14m-40 76v14m20-14v14m20-14v14M542 418h-14m14 20h-14m86-20h14m-14 20h14"/>
+  </g>
+  <g fill="#EAAE35"><circle cx="558" cy="425" r="6"/><circle cx="592" cy="425" r="6"/><circle cx="575" cy="446" r="6"/></g>
+  <path d="M558 425l17 21 17-21" fill="none" stroke="#EAAE35" stroke-width="4"/>
+</svg>

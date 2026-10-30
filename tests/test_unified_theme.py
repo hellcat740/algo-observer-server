@@ -18,3 +18,19 @@ def test_landing_loads_shared_theme_without_changing_primary_routes():
     assert 'href="/me"' in html
     assert 'href="/admin-login"' in html
     assert 'href="/download"' in html
+
+
+def test_balance_fallback_is_accessible_and_self_contained():
+    svg = (STATIC / "balance-fallback.svg").read_text(encoding="utf-8")
+    assert 'role="img"' in svg
+    assert "利益与算法的平衡" in svg
+    assert "左侧价格与利益符号，右侧芯片与算法节点" in svg
+    assert 'href="http' not in svg and "xlink:href=\"http" not in svg
+
+
+def test_landing_has_accessible_balance_scene_and_module():
+    html = (STATIC / "landing.html").read_text(encoding="utf-8")
+    assert 'id="balanceScene"' in html
+    assert "/static/js/balance-scene.js" in html
+    assert 'type="importmap"' in html
+    assert "/static/vendor/three.module.min.js" in html
