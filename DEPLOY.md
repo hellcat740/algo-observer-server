@@ -172,10 +172,15 @@ cat /var/log/algo-supabase-sync.log # Supabase 每周同步日志
 
 ## 7. 部署记录
 
-- **2026-10-29（部署后 HEAD，当前线上版本）**：三维观测空间 + 商品分类可视化
-  （5aed23d，本地追加修复 space.py 退化统计跨 scipy 版本兼容）。109/109 测试通过。
-  回退点 `rollback-20261029-a9f89c4`。新页面 /space、/visualization；DeepSeek 分类可选配置
-  （.env 加 DEEPSEEK_API_KEY，未配置时分类标记为需人工复核，不影响其他功能）。
+- **2026-10-30（ea564e7，当前线上版本）**：每日空闲商品自动分类（每天 01:17 上海时间，
+  web 容器内后台线程，每日上限 100 个未分类商品）+ 多模型供应商（DeepSeek / 阿里云 Qwen，
+  `.env` 选 `CLASSIFICATION_PROVIDER`，均未配置时不执行，不影响其他功能）；
+  新增管理员手动触发接口 `POST /api/space/classification-check`。128/128 测试通过
+  （测试容器须显式 `-e DATABASE_URL=sqlite:////tmp/obs_test.db`，原因见 deploy skill）。
+  回退点 `rollback-20261030-c3cd24c`。
+- 2026-10-29（5aed23d）：三维观测空间 + 商品分类可视化（新页面 /space、/visualization；
+  DeepSeek 分类可选配置），本地追加修复 space.py 退化统计跨 scipy 版本兼容。
+  109/109 测试通过。回退点 `rollback-20261029-a9f89c4`。
 - 2026-10-29（588cc4b）：管理端分析页简化 + USD 观测按汇率格式化显示（前端静态页）。
   58/58 测试通过。回退点 `rollback-20261029-3f3ffdb`。
 - 2026-10-28（599b8ff）：下载页显示当前插件版本 v1.1.0（dbd6160）+ 部署记录/脚本权限位。
