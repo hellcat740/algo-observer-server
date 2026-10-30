@@ -36,9 +36,15 @@
 | --- | --- | --- |
 | `INGEST_API_KEY` | 插件上报密钥（公开，随插件分发），只放行 `POST /api/observations` | `api/app/auth.py` |
 | `ADMIN_KEY` | 管理员原始密钥（仅维护者持有，服务端只存 SHA-256 哈希） | `api/app/auth.py` |
-| `DEEPSEEK_API_KEY` | 商品分类模型密钥，仅在服务端使用，必须注入为部署密钥 | 无 |
-| `DEEPSEEK_BASE_URL` | OpenAI 兼容接口根地址 | `https://api.deepseek.com/v1` |
-| `DEEPSEEK_MODEL` | 商品分类模型 | `v4.1flash` |
+| `CLASSIFICATION_PROVIDER` | 商品分类提供商，可选 `deepseek` / `qwen` | `deepseek` |
+| `DEEPSEEK_API_KEY` | DeepSeek 密钥，仅在服务端使用 | 无 |
+| `DEEPSEEK_BASE_URL` | DeepSeek OpenAI 兼容接口根地址 | `https://api.deepseek.com/v1` |
+| `DEEPSEEK_MODEL` | DeepSeek 商品分类模型 | `v4.1flash` |
+| `QWEN_API_KEY` / `DASHSCOPE_API_KEY` | Qwen 密钥，前者优先，仅在服务端使用 | 无 |
+| `QWEN_BASE_URL` | Qwen OpenAI 兼容接口根地址 | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| `QWEN_MODEL` | Qwen 商品分类模型 | `qwen3.8flash` |
+
+提供商解析代码位于 `api/app/classification_config.py`；阿里云实际配置位于 `/opt/algo-observer-server/.env`，详见 `DEPLOY.md`。
 
 生产建议：在 Vercel 环境变量中注入 `ADMIN_KEY`，并在插件发布后把上报密钥与
 `chrome-extension://` 来源收敛到自己的扩展 ID 与域名。
