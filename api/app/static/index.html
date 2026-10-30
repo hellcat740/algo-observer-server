@@ -244,7 +244,6 @@
     <a href="#/overview" data-route="overview">📊 总览</a>
     <a href="#/observations" data-route="observations">🗃️ 观测数据</a>
     <a href="#/analysis" data-route="analysis">🔍 歧视分析</a>
-    <a href="/visualization">🧭 高维可视化</a>
     <a href="/space">🌐 三维数据空间</a>
     <a href="#/about" data-route="about">📖 关于 / 方法说明</a>
   </nav>
@@ -348,9 +347,11 @@
       <div class="panel" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <b style="font-size:13px">✍️ 数据管理</b>
         <button class="btn" onclick="obsAddOpen()">＋ 新增记录</button>
+        <button class="btn ghost" id="obs-classifyBtn" title="后台分类未分类商品" onclick="obsClassify()">分类</button>
         <button class="btn ghost" onclick="usersOpen()">👥 用户管理</button>
         <span class="muted" style="font-size:12px">管理员手动补录单条观测（走清洗管线，与插件上报同口径入库）</span>
         <span id="obs-addResult" class="muted" style="font-size:12px"></span>
+        <span id="obs-classifyStatus" class="muted" style="font-size:12px"></span>
       </div>
       <div class="panel filters">
         <label>商品ID <input id="obs-fProductId" placeholder="精确匹配"></label>
@@ -386,7 +387,7 @@
         <table class="list">
           <thead>
             <tr>
-              <th>采集时间(UTC)</th><th>平台</th><th>商品名</th><th>商品ID</th>
+              <th>采集时间(UTC)</th><th>平台</th><th>商品名</th><th>商品ID</th><th>类别</th>
               <th>标价</th><th>到手价</th><th>城市</th><th>登录态</th><th>新用户</th><th>用户</th><th>来源</th><th>操作</th>
             </tr>
           </thead>
@@ -505,6 +506,23 @@
   <div class="drawer-body">
     <dl class="kv" id="obs-detailKv"></dl>
     <pre class="json" id="obs-detailJson"></pre>
+  </div>
+</div>
+
+<!-- 编辑抽屉：业务字段可改，记录身份与同步元数据只读保留 -->
+<div class="drawer-mask" id="obs-editMask" onclick="obsEditClose()"></div>
+<div class="drawer" id="obs-editDrawer">
+  <div class="drawer-head">
+    <h2>编辑观测记录</h2>
+    <button class="x" onclick="obsEditClose()">×</button>
+  </div>
+  <div class="drawer-body">
+    <dl class="kv" id="obs-editMeta"></dl>
+    <div id="obs-edit-fields" class="panel" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px"></div>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:14px">
+      <button class="btn" id="obs-editSaveBtn" onclick="obsEditSubmit()">保存修改</button>
+      <span id="obs-editMsg" class="muted" style="font-size:12px"></span>
+    </div>
   </div>
 </div>
 
@@ -1086,6 +1104,7 @@ async function obsLoad() {
           <td><span class="chip">${esc(o.platform_code)}</span></td>
           <td class="ellipsis" title="${esc(o.product_name)}">${esc(o.product_name)}</td>
           <td class="ellipsis muted">${esc(o.product_id)}</td>
+          <td class="ellipsis" id="obs-category-${o.observation_id}">未分类</td>
           <td>${fen(o.display_price_cents, o.currency)}</td>
           <td>${o.actual_pay_price_cents == null ? '—' : fen(o.actual_pay_price_cents, o.currency)}</td>
           <td>${esc(o.ip_city || '—')}</td>
@@ -1100,9 +1119,11 @@ async function obsLoad() {
               ? '<span class="chip gray">本机</span>'
               : '<span class="muted">—</span>'}</td>
           <td onclick="event.stopPropagation()">
+            <button class="btn small" onclick="obsEdit('${o.observation_id}')">编辑</button>
             <button class="btn small danger" onclick="obsDelete('${o.observation_id}')">删除</button>
           </td>
         </tr>`).join('');
+      await obsLoadCategories(data.items);
     }
     const pages = Math.max(1, Math.ceil(obsTotal / obsPageSize));
     $('obs-pageInfo').textContent = `第 ${obsPage} / ${pages} 页 · 共 ${obsTotal} 条`;
@@ -1117,6 +1138,164 @@ function obsReset() {
 }
 function obsPrev() { if (obsPage > 1) { obsPage--; obsLoad(); } }
 function obsNext() { if (obsPage < Math.ceil(obsTotal / obsPageSize)) { obsPage++; obsLoad(); } }
+
+function obsCategoryText(category) {
+  if (!category) return '未分类';
+  return [category.category_l1, category.category_l2, category.category_l3].filter(Boolean).join(' / ') || '未分类';
+}
+
+async function obsLoadCategories(items) {
+  if (!items.length) return;
+  const data = await api('/api/observations/categories', {
+    method: 'POST', body: JSON.stringify({ observation_ids: items.map(o => o.observation_id) }),
+  });
+  items.forEach(o => {
+    const cell = $('obs-category-' + o.observation_id);
+    if (cell) cell.textContent = obsCategoryText(data.items[o.observation_id]);
+  });
+}
+
+async function obsClassify() {
+  const button = $('obs-classifyBtn');
+  const status = $('obs-classifyStatus');
+  button.disabled = true;
+  status.textContent = '正在启动后台分类…';
+  try {
+    await api('/api/space/classification-check', { method: 'POST' });
+    while (true) {
+      const result = await api('/api/space/classification-status');
+      if (result.status === 'running') {
+        status.textContent = `分类中 ${result.processed || 0}/${result.total || 0}`;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;
+      }
+      if (result.status === 'error' || result.status === 'not_configured') {
+        status.textContent = result.message || (result.status === 'not_configured' ? '未配置商品分类服务' : '分类失败');
+      } else {
+        status.textContent = result.message || `分类完成：${result.processed || 0} 个商品`;
+        await obsLoad();
+      }
+      break;
+    }
+  } catch (e) {
+    status.textContent = '分类请求失败，请检查 API Key 或网络';
+  } finally {
+    button.disabled = false;
+  }
+}
+
+const OBS_BOOL_OPTIONS = [
+  { value: "", label: "未知" }, { value: "true", label: "是" }, { value: "false", label: "否" },
+];
+const OBS_PLATFORM_OPTIONS = ['meituan', 'taobao', 'tmall', 'jd', 'pinduoduo', 'amazon', 'yangkeduo', 'eleme', 'dianping', 'ctrip', 'didi']
+  .map(value => ({ value, label: value }));
+const OBS_EDIT_FIELDS = [
+  { key: "task_id", label: "任务 ID", type: "text" },
+  { key: "user_ref", label: "匿名用户 ID", type: "text" },
+  { key: "platform_code", label: "平台代码", type: "select", options: OBS_PLATFORM_OPTIONS },
+  { key: "source_type", label: "来源类型", type: "text" },
+  { key: "product_id", label: "商品 ID", type: "text" },
+  { key: "product_name", label: "商品名称", type: "text" },
+  { key: "seller_id", label: "商家 ID", type: "text" },
+  { key: "product_url", label: "商品链接", type: "text" },
+  { key: "display_price_cents", label: "展示价（分）", type: "number" },
+  { key: "actual_pay_price_cents", label: "到手价（分）", type: "number" },
+  { key: "currency", label: "币种", type: "select", options: [{ value: "CNY", label: "CNY" }, { value: "USD", label: "USD" }] },
+  { key: "discount_coupon_amount_cents", label: "优惠券金额（分）", type: "number" },
+  { key: "promo_type", label: "促销类型", type: "text" },
+  { key: "promo_label", label: "促销标签", type: "text" },
+  { key: "is_login", label: "登录状态", type: "select", options: OBS_BOOL_OPTIONS },
+  { key: "membership_level", label: "会员等级", type: "text" },
+  { key: "is_new_user", label: "是否新用户", type: "select", options: OBS_BOOL_OPTIONS },
+  { key: "register_days", label: "注册天数", type: "number" },
+  { key: "user_agent", label: "User-Agent", type: "text" },
+  { key: "platform", label: "客户端平台", type: "text" },
+  { key: "language", label: "语言", type: "text" },
+  { key: "device_memory", label: "设备内存（GB）", type: "number" },
+  { key: "hardware_concurrency", label: "CPU 线程数", type: "number" },
+  { key: "screen_resolution", label: "屏幕分辨率", type: "text" },
+  { key: "device_price_score_estimate", label: "设备价格分估计", type: "number" },
+  { key: "ip_city", label: "IP 城市", type: "text" },
+  { key: "shipping_city", label: "收货城市", type: "text" },
+  { key: "peak_hour", label: "是否高峰时段", type: "select", options: OBS_BOOL_OPTIONS },
+  { key: "stock_hint", label: "库存提示", type: "text" },
+  { key: "fetch_ts", label: "采集时间", type: "datetime-local" },
+  { key: "screenshot_path", label: "截图路径", type: "text" },
+  { key: "dom_price_text", label: "DOM 价格文本", type: "text" },
+  { key: "dom_snapshot_path", label: "DOM 快照路径", type: "text" },
+  { key: "source_code_version", label: "源码版本", type: "text" },
+];
+let obsEditingId = null;
+
+async function obsEdit(id) {
+  if (!apiKey) { toast('请先填写 API Key'); return; }
+  try {
+    const o = await api('/api/observations/' + id);
+    obsEditingId = id;
+    $('obs-editMeta').innerHTML = `<dt>观测 ID</dt><dd>${esc(o.observation_id)}</dd><dt>创建时间</dt><dd>${esc(o.created_at || '—')}</dd>`;
+    $('obs-edit-fields').innerHTML = OBS_EDIT_FIELDS.map(field => {
+      const idAttr = 'obs-edit-' + field.key;
+      let value = o[field.key];
+      let control;
+      if (field.type === 'select') {
+        const selected = value == null ? '' : String(value);
+        control = `<select id="${idAttr}" style="width:100%">${field.options.map(option =>
+          `<option value="${esc(option.value)}"${selected === option.value ? ' selected' : ''}>${esc(option.label)}</option>`).join('')}</select>`;
+      } else {
+        if (field.type === 'datetime-local' && value) value = new Date(value).toISOString().slice(0, 16);
+        control = `<input id="${idAttr}" type="${field.type}"${field.type === 'number' ? ' step="any"' : ''} value="${esc(value == null ? '' : String(value))}" style="width:100%">`;
+      }
+      return `<label>${field.label}${control}</label>`;
+    }).join('');
+    $('obs-editMsg').textContent = '';
+    $('obs-editDrawer').classList.add('open');
+    $('obs-editMask').classList.add('open');
+  } catch (e) { /* 已提示 */ }
+}
+
+function obsEditClose() {
+  obsEditingId = null;
+  $('obs-editDrawer').classList.remove('open');
+  $('obs-editMask').classList.remove('open');
+}
+
+async function obsEditSubmit() {
+  if (!obsEditingId) return;
+  const button = $('obs-editSaveBtn');
+  const payload = {};
+  OBS_EDIT_FIELDS.forEach(field => {
+    const raw = $('obs-edit-' + field.key).value.trim();
+    const key = field.key === 'user_ref' ? 'anonymous_id' : field.key;
+    if (raw === '') payload[key] = null;
+    else if (field.type === 'number') payload[key] = Number(raw);
+    else if (field.type === 'datetime-local') payload[key] = new Date(raw).toISOString();
+    else if (OBS_BOOL_OPTIONS === field.options) payload[key] = raw === 'true';
+    else payload[key] = raw;
+  });
+  button.disabled = true;
+  $('obs-editMsg').textContent = '正在保存…';
+  try {
+    const resp = await fetch('/api/observations/' + obsEditingId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const detail = typeof data.detail === 'string' ? data.detail
+        : Array.isArray(data.detail) ? data.detail.map(d => d.msg || JSON.stringify(d)).join('；') : '';
+      $('obs-editMsg').textContent = '保存失败：' + (detail || ('HTTP ' + resp.status));
+      return;
+    }
+    toast('修改已保存');
+    obsEditClose();
+    await obsLoad();
+  } catch (e) {
+    $('obs-editMsg').textContent = '保存失败：网络错误';
+  } finally {
+    button.disabled = false;
+  }
+}
 
 async function obsShowDetail(id) {
   try {

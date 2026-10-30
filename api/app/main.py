@@ -28,6 +28,7 @@ from .transfer_api import router as transfer_router
 from .cleaning import CleanError, clean_observation
 from .database import Base, engine, get_db
 from .models import Observation, User
+from .product_categories import cache_key, get_cached_classifications
 from .schemas import (
     DayCount,
     ObservationCreated,
@@ -37,7 +38,7 @@ from .schemas import (
     PlatformCount,
     StatsSummary,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -356,6 +357,75 @@ def list_observations(
         .all()
     )
     return ObservationPage(total=total, page=page, page_size=page_size, items=items)
+
+
+class ObservationIdsIn(BaseModel):
+    observation_ids: list[str] = Field(default_factory=list, max_length=200)
+
+
+@app.post(
+    "/api/observations/categories",
+    dependencies=[Depends(require_api_key)],
+)
+def observation_categories(payload: ObservationIdsIn, db: Session = Depends(get_db)):
+    """只读当前页商品的分类缓存，绝不调用模型。"""
+    ids = list(dict.fromkeys(payload.observation_ids))
+    observations = db.query(Observation).filter(Observation.observation_id.in_(ids)).all() if ids else []
+    cached = get_cached_classifications(db, observations)
+    items = {}
+    for observation_id in ids:
+        observation = next((item for item in observations if item.observation_id == observation_id), None)
+        result = cached.get(cache_key(observation)) if observation is not None else None
+        items[observation_id] = None if result is None else {
+            key: result[key] for key in (
+                "cache_key", "category_l1", "category_l2", "category_l3",
+                "confidence", "needs_human_review", "model_name",
+            )
+        }
+    return {"items": items}
+
+
+def _change_observation_user(db, old_ref, new_ref):
+    if old_ref == new_ref:
+        return
+    now = datetime.now(timezone.utc)
+    if old_ref:
+        old_user = db.query(User).filter(User.anonymous_id == old_ref).first()
+        if old_user is not None:
+            old_user.observation_count = max(0, old_user.observation_count - 1)
+    if new_ref:
+        new_user = db.query(User).filter(User.anonymous_id == new_ref).first()
+        if new_user is None:
+            new_user = User(
+                anonymous_id=new_ref, first_seen_at=now,
+                last_seen_at=now, observation_count=0,
+            )
+            db.add(new_user)
+        new_user.last_seen_at = now
+        new_user.observation_count += 1
+
+
+@app.put(
+    "/api/observations/{observation_id}",
+    response_model=ObservationOut,
+    dependencies=[Depends(require_api_key)],
+)
+def update_observation(observation_id: str, payload: ObservationIn, db: Session = Depends(get_db)):
+    obs = db.query(Observation).filter(Observation.observation_id == observation_id).first()
+    if obs is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="记录不存在")
+    try:
+        cleaned, _, anonymous_id = clean_observation(payload)
+    except CleanError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    old_ref = obs.user_ref
+    for field, value in cleaned.items():
+        setattr(obs, field, value)
+    obs.user_ref = anonymous_id
+    _change_observation_user(db, old_ref, anonymous_id)
+    db.commit()
+    db.refresh(obs)
+    return obs
 
 
 @app.get(
