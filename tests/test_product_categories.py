@@ -106,6 +106,14 @@ class ProductCategoryTest(unittest.TestCase):
         self.assertEqual(result["category_l1"], "手机数码")
         self.assertFalse(result["needs_human_review"])
 
+    def test_selected_qwen_model_is_persisted(self):
+        with patch.dict(os.environ, {"CLASSIFICATION_PROVIDER": "qwen", "QWEN_API_KEY": "test-qwen"}, clear=False):
+            results, warnings = classify_products(
+                self.db, [self.product], caller=FakeCaller(valid_classification())
+            )
+        self.assertEqual(warnings, [])
+        self.assertEqual(results[cache_key(self.product)]["model_name"], "qwen3.8flash")
+
     def test_cache_hit_avoids_repeated_model_call(self):
         first = FakeCaller(valid_classification())
         classify_products(self.db, [self.product], caller=first)

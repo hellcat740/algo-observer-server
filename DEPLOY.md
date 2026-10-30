@@ -69,15 +69,36 @@ crontab -e
 
 ## 2.6 商品分类与高维可视化
 
-`.env` 中配置以下变量，`docker-compose.yml` 的 `env_file` 会把它们传给 web 容器：
+实际配置位置为 `/opt/algo-observer-server/.env`，`docker-compose.yml` 的 `env_file` 会把变量传给 web 容器。提供商默认值与解析代码位于 `api/app/classification_config.py`。只需配置所选服务的真实密钥，不要把密钥提交到 Git。
+
+DeepSeek（默认）：
 
 ```text
+CLASSIFICATION_PROVIDER=deepseek
 DEEPSEEK_API_KEY=replace-with-deepseek-secret
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 DEEPSEEK_MODEL=v4.1flash
 ```
 
-真实密钥只放在 ECS 的 `.env`，不要提交到 Git。更新后运行 `docker compose up -d --build`，再访问 `https://algodiscriminatingcheck.cn/visualization`。首次请求分类时会自动创建独立的 `product_category_cache` 表，不修改现有观测字段；同一商品的重复观测复用缓存，商品改名会生成新的分类缓存。
+Qwen（阿里云百炼 OpenAI 兼容接口）：
+
+```text
+CLASSIFICATION_PROVIDER=qwen
+QWEN_API_KEY=replace-with-qwen-secret
+QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+QWEN_MODEL=qwen3.8flash
+```
+
+`QWEN_API_KEY` 也可改用 `DASHSCOPE_API_KEY`。只修改 `.env` 后运行 `docker compose up -d --force-recreate web`；更新代码后运行 `docker compose up -d --build`。
+
+阿里云常驻服务每天北京时间 **01:17** 自动检查一次，每轮最多分类 **100 个**没有缓存的商品，已有缓存不会重复调用模型。部署后无需等到第二天，可使用管理员密钥手动触发后台检查：
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/space/classification-check -H 'X-API-Key: 替换为管理员密钥'
+curl http://127.0.0.1:8000/api/space/classification-status -H 'X-API-Key: 替换为管理员密钥'
+```
+
+手动接口为 `POST /api/space/classification-check`，请求不会在后台任务执行期间保持开放。三维空间首次请求分类时自动创建的 `product_category_cache` 表也会被每日任务复用，不修改现有观测字段；同一商品的重复观测复用缓存，商品改名会生成新的分类缓存。
 
 未配置密钥或模型暂时失败不会阻断页面：商品会显示为“其他／无法判断”并需人工复核。配置完成后刷新页面即可重试临时失败的分类。
 

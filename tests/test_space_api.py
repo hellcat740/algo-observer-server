@@ -46,6 +46,8 @@ def make_observation(observation_id="space-1", user_ref=USER_A, price=10000, hou
 
 class SpaceApiTest(unittest.TestCase):
     def setUp(self):
+        from app import space_api
+        space_api.reset_classification_status()
         self.engine = create_engine(
             "sqlite:///:memory:",
             connect_args={"check_same_thread": False},
@@ -101,7 +103,9 @@ class SpaceApiTest(unittest.TestCase):
         self.assertEqual(self.get(authenticated=False).status_code, 401)
 
     def test_uncached_points_return_without_calling_model(self):
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": ""}, clear=False), patch(
+        with patch.dict(os.environ, {
+            "DEEPSEEK_API_KEY": "", "QWEN_API_KEY": "", "DASHSCOPE_API_KEY": ""
+        }, clear=False), patch(
             "app.product_categories._call_deepseek",
             side_effect=AssertionError("model must not run in the points request"),
         ) as caller:
@@ -156,6 +160,32 @@ class SpaceApiTest(unittest.TestCase):
             observations = db.query(Observation).all()
             cached = get_cached_classifications(db, observations)
         self.assertEqual(cached[cache_key(observations[0])]["category_l2"], "手机")
+
+    def test_manual_classification_check_requires_admin_credentials(self):
+        response = self.client.post("/api/space/classification-check")
+        self.assertEqual(response.status_code, 401)
+
+    def test_manual_classification_check_runs_in_background(self):
+        from app import space_api
+        space_api.reset_classification_status()
+        with patch("app.space_api.run_idle_check") as check:
+            response = self.client.post(
+                "/api/space/classification-check", headers={"X-API-Key": ADMIN_KEY}
+            )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["status"], "idle")
+        check.assert_called_once_with()
+
+    def test_qwen_key_enables_existing_space_classification(self):
+        from app import space_api
+        space_api.reset_classification_status()
+        with patch.dict(os.environ, {
+            "CLASSIFICATION_PROVIDER": "qwen", "QWEN_API_KEY": "test-qwen"
+        }, clear=True), patch("app.space_api.run_classification_worker") as worker:
+            response = self.get()
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["meta"]["classification_status"], "running")
+        worker.assert_called_once()
 
 
 class SpaceClassificationWorkerTest(unittest.TestCase):

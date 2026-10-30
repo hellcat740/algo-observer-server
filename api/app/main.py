@@ -89,6 +89,8 @@ def init_db():
     from .sync_api import start_auto_sync
     start_auto_sync()
     start_rate_refresh()
+    from .classification_scheduler import start_classification_scheduler
+    start_classification_scheduler()
 
 
 def _migrate_lightweight():
