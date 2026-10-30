@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import os
 import threading
 from types import SimpleNamespace
 from typing import Optional
@@ -11,6 +10,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy import func
 
 from .auth import require_api_key
+from .classification_config import provider_is_configured
+from .classification_scheduler import run_idle_check
 from .database import SessionLocal, get_db
 from .exchange_rates import ExchangeRateUnavailable, latest_rate
 from .models import Observation
@@ -105,7 +106,7 @@ def schedule_classification(background_tasks, products):
     current = get_classification_status()
     if current["status"] == "running":
         return current
-    if not os.environ.get("DEEPSEEK_API_KEY", "").strip():
+    if not provider_is_configured():
         _update_classification_status(
             status="not_configured", processed=0, total=len(products),
             started_at=None, finished_at=None, message="未配置商品分类服务",
@@ -217,6 +218,12 @@ def space_points(
             "warnings": warnings,
         },
     }
+
+
+@router.post("/classification-check")
+def classification_check(background_tasks: BackgroundTasks):
+    background_tasks.add_task(run_idle_check)
+    return get_classification_status()
 
 
 @router.get("/classification-status")

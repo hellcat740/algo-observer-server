@@ -9,12 +9,6 @@ from .classification_config import provider_is_configured
 from .database import SessionLocal
 from .models import Observation
 from .product_categories import cache_key, deduplicate_products, get_cached_classifications
-from .space_api import (
-    _detached_product,
-    _update_classification_status,
-    get_classification_status,
-    run_classification_worker,
-)
 
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 DAILY_LIMIT = 100
@@ -30,6 +24,8 @@ def next_run(now: datetime) -> datetime:
 
 
 def find_uncached_products(db, limit=DAILY_LIMIT):
+    from .space_api import _detached_product
+
     observations = db.query(Observation).order_by(
         Observation.created_at, Observation.observation_id
     ).all()
@@ -42,6 +38,10 @@ def find_uncached_products(db, limit=DAILY_LIMIT):
 
 
 def run_idle_check(session_factory=None, worker=None):
+    from .space_api import (
+        _update_classification_status, get_classification_status, run_classification_worker
+    )
+
     session_factory = session_factory or SessionLocal
     worker = worker or run_classification_worker
     if get_classification_status()["status"] == "running":
