@@ -18,7 +18,7 @@ class ClassificationConfigTest(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             settings = provider_settings()
         self.assertEqual(settings.name, "deepseek")
-        self.assertEqual(settings.model, "v4.1flash")
+        self.assertEqual(settings.model, "deepseek-flash")
         self.assertEqual(settings.base_url, "https://api.deepseek.com/v1")
         self.assertFalse(provider_is_configured())
 
@@ -28,7 +28,7 @@ class ClassificationConfigTest(unittest.TestCase):
             self.assertTrue(provider_is_configured())
         self.assertEqual(settings.name, "qwen")
         self.assertEqual(settings.api_key, "test-qwen")
-        self.assertEqual(settings.model, "qwen3.8flash")
+        self.assertEqual(settings.model, "qwen3.7-flash")
         self.assertEqual(settings.base_url, "https://dashscope.aliyuncs.com/compatible-mode/v1")
 
     def test_qwen_accepts_dashscope_key_fallback(self):
@@ -56,9 +56,17 @@ class ClassificationConfigTest(unittest.TestCase):
         request = urlopen.call_args.args[0]
         self.assertEqual(request.full_url, "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions")
         self.assertEqual(request.headers["Authorization"], "Bearer test-qwen")
-        self.assertEqual(json.loads(request.data)["model"], "qwen3.8flash")
+        self.assertEqual(json.loads(request.data)["model"], "qwen3.7-flash")
         with patch.dict(os.environ, {"CLASSIFICATION_PROVIDER": "qwen"}, clear=True):
-            self.assertEqual(classification_request(make_product())["model"], "qwen3.8flash")
+            self.assertEqual(classification_request(make_product())["model"], "qwen3.7-flash")
+            self.assertEqual(
+                classification_request(make_product())["chat_template_kwargs"],
+                {"enable_thinking": False},
+            )
+
+    def test_deepseek_request_does_not_disable_thinking(self):
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test"}, clear=True):
+            self.assertNotIn("chat_template_kwargs", classification_request(make_product()))
 
 
 if __name__ == "__main__":

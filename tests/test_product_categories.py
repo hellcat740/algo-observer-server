@@ -112,7 +112,7 @@ class ProductCategoryTest(unittest.TestCase):
                 self.db, [self.product], caller=FakeCaller(valid_classification())
             )
         self.assertEqual(warnings, [])
-        self.assertEqual(results[cache_key(self.product)]["model_name"], "qwen3.8flash")
+        self.assertEqual(results[cache_key(self.product)]["model_name"], "qwen3.7-flash")
 
     def test_cache_hit_avoids_repeated_model_call(self):
         first = FakeCaller(valid_classification())
@@ -141,7 +141,7 @@ class ProductCategoryTest(unittest.TestCase):
             set(content),
             {"product_name", "seller_id", "product_url", "platform_code"},
         )
-        self.assertEqual(request["model"], "v4.1flash")
+        self.assertEqual(request["model"], "deepseek-flash")
         self.assertEqual(request["response_format"], {"type": "json_object"})
         forbidden_keys = {
             "user_ref", "ip_city", "shipping_city", "membership_level",

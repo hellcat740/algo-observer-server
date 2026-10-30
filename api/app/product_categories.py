@@ -83,7 +83,7 @@ def classification_request(product: Any) -> dict[str, Any]:
         "category_l3 无法判断时为空字符串。分类体系如下：\n"
         + json.dumps(CATEGORY_TAXONOMY, ensure_ascii=False)
     )
-    return {
+    request = {
         "model": _model_name(),
         "temperature": 0,
         "response_format": {"type": "json_object"},
@@ -95,6 +95,10 @@ def classification_request(product: Any) -> dict[str, Any]:
             },
         ],
     }
+    # qwen3.x 为思考模型，默认先推理再回答会超出分类超时；关闭思考保证 8 秒内返回。
+    if provider_settings().name == "qwen":
+        request["chat_template_kwargs"] = {"enable_thinking": False}
+    return request
 
 
 def _call_model(product: Any) -> dict[str, Any]:

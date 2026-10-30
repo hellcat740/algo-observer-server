@@ -46,7 +46,7 @@ cd algo-observer-server
 # 2.2 配置密钥
 cp .env.example .env
 nano .env            # POSTGRES_PASSWORD / ADMIN_KEY 换强随机串；INGEST_API_KEY 必须与插件内置值保持一致（勿改，见 .env.example）
-                     # 商品分类还需设置 DEEPSEEK_API_KEY，模型默认 v4.1flash
+                     # 商品分类还需设置 DEEPSEEK_API_KEY，模型默认 deepseek-flash
 
 # 2.3 构建并启动（首次会拉 postgres:17-alpine 镜像 + pip 依赖，1Mbps 约需几分钟）
 docker compose up -d --build
@@ -77,7 +77,7 @@ DeepSeek（默认）：
 CLASSIFICATION_PROVIDER=deepseek
 DEEPSEEK_API_KEY=replace-with-deepseek-secret
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
-DEEPSEEK_MODEL=v4.1flash
+DEEPSEEK_MODEL=deepseek-flash
 ```
 
 Qwen（阿里云百炼 OpenAI 兼容接口）：
@@ -86,7 +86,7 @@ Qwen（阿里云百炼 OpenAI 兼容接口）：
 CLASSIFICATION_PROVIDER=qwen
 QWEN_API_KEY=replace-with-qwen-secret
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-QWEN_MODEL=qwen3.8flash
+QWEN_MODEL=qwen3.7-flash
 ```
 
 `QWEN_API_KEY` 也可改用 `DASHSCOPE_API_KEY`。只修改 `.env` 后运行 `docker compose up -d --force-recreate web`；更新代码后运行 `docker compose up -d --build`。

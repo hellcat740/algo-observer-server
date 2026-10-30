@@ -12,7 +12,7 @@ class ClassificationDeploymentDocsTest(unittest.TestCase):
             "CLASSIFICATION_PROVIDER=deepseek",
             "QWEN_API_KEY=replace-with-qwen-secret",
             "QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1",
-            "QWEN_MODEL=qwen3.8flash",
+            "QWEN_MODEL=qwen3.7-flash",
         ):
             self.assertIn(expected, text)
         self.assertIsNone(re.search(r"sk-[A-Za-z0-9]", text))

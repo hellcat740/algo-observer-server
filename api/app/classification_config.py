@@ -22,14 +22,14 @@ def provider_settings() -> ProviderSettings:
             name=name,
             api_key=os.environ.get("DEEPSEEK_API_KEY", "").strip(),
             base_url=os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
-            model=os.environ.get("DEEPSEEK_MODEL", "v4.1flash"),
+            model=os.environ.get("DEEPSEEK_MODEL", "deepseek-flash"),
         )
     if name == "qwen":
         return ProviderSettings(
             name=name,
             api_key=(os.environ.get("QWEN_API_KEY") or os.environ.get("DASHSCOPE_API_KEY") or "").strip(),
             base_url=os.environ.get("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
-            model=os.environ.get("QWEN_MODEL", "qwen3.8flash"),
+            model=os.environ.get("QWEN_MODEL", "qwen3.7-flash"),
         )
     raise ClassificationError("CLASSIFICATION_PROVIDER 仅支持 deepseek 或 qwen")
 

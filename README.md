@@ -39,10 +39,10 @@
 | `CLASSIFICATION_PROVIDER` | 商品分类提供商，可选 `deepseek` / `qwen` | `deepseek` |
 | `DEEPSEEK_API_KEY` | DeepSeek 密钥，仅在服务端使用 | 无 |
 | `DEEPSEEK_BASE_URL` | DeepSeek OpenAI 兼容接口根地址 | `https://api.deepseek.com/v1` |
-| `DEEPSEEK_MODEL` | DeepSeek 商品分类模型 | `v4.1flash` |
+| `DEEPSEEK_MODEL` | DeepSeek 商品分类模型 | `deepseek-flash` |
 | `QWEN_API_KEY` / `DASHSCOPE_API_KEY` | Qwen 密钥，前者优先，仅在服务端使用 | 无 |
 | `QWEN_BASE_URL` | Qwen OpenAI 兼容接口根地址 | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
-| `QWEN_MODEL` | Qwen 商品分类模型 | `qwen3.8flash` |
+| `QWEN_MODEL` | Qwen 商品分类模型 | `qwen3.7-flash` |
 
 提供商解析代码位于 `api/app/classification_config.py`；阿里云实际配置位于 `/opt/algo-observer-server/.env`，详见 `DEPLOY.md`。
 
