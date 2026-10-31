@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { categoryOpacity, comparisonCircleGeometry } from '../../api/app/static/js/space-volumes.js';
+import { buildComparisonGeometry, categoryOpacity, comparisonCircleGeometry } from '../../api/app/static/js/space-volumes.js';
 
 test('category opacity fades smoothly as the camera approaches', () => {
   assert.equal(categoryOpacity(1, 1000), 0.14);
@@ -39,4 +39,53 @@ test('coincident and degenerate circles have stable finite bounds', () => {
   assert.equal(circle.radius, 2);
   assert.equal(comparisonCircleGeometry([], [1, 0, 0]), null);
   assert.equal(comparisonCircleGeometry([[NaN, 0, 0]], [1, 0, 0]), null);
+});
+
+test('comparison geometry groups nearby times and connects adjacent clusters', () => {
+  const points = [
+    {observation_id: 'a', fetch_ts: '2026-10-01T00:00:00Z'},
+    {observation_id: 'b', fetch_ts: '2026-10-01T12:00:00Z'},
+    {observation_id: 'c', fetch_ts: '2026-10-03T00:00:00Z'},
+  ];
+  const positions = {a: [0, 0, 0], b: [2, 4, 6], c: [20, 20, 30]};
+  const geometry = buildComparisonGeometry(points, point => positions[point.observation_id]);
+  assert.equal(geometry.clusters.length, 2);
+  assert.deepEqual(geometry.clusters[0].center, [1, 2, 3]);
+  assert.deepEqual(geometry.clusters[0].radii, [2, 2, 3]);
+  assert.equal(geometry.clusters[0].count, 2);
+  assert.deepEqual(geometry.lines, [{from: [1, 2, 3], to: [20, 20, 30]}]);
+  assert.ok(geometry.clusters.every(cluster => cluster.radii.every(Number.isFinite)));
+});
+
+test('comparison geometry includes observations exactly 24 hours apart', () => {
+  const points = [
+    {observation_id: 'a', fetch_ts: '2026-10-01T00:00:00Z'},
+    {observation_id: 'b', fetch_ts: '2026-10-02T00:00:00Z'},
+  ];
+  const geometry = buildComparisonGeometry(points, point => point.observation_id === 'a' ? [0, 0, 0] : [4, 0, 24]);
+  assert.equal(geometry.clusters.length, 1);
+  assert.equal(geometry.clusters[0].count, 2);
+  assert.deepEqual(geometry.lines, []);
+});
+
+test('comparison geometry excludes invalid times and positions', () => {
+  const points = [
+    {observation_id: 'invalid', fetch_ts: 'not-a-time'},
+    {observation_id: 'missing-position', fetch_ts: '2026-10-01T00:00:00Z'},
+    {observation_id: 'valid', fetch_ts: '2026-10-01T01:00:00Z'},
+  ];
+  const positions = {valid: [3, 4, 5]};
+  const geometry = buildComparisonGeometry(points, point => positions[point.observation_id]);
+  assert.equal(geometry.clusters.length, 1);
+  assert.equal(geometry.clusters[0].count, 1);
+  assert.deepEqual(geometry.clusters[0].center, [3, 4, 5]);
+});
+
+test('single-point comparison clusters have finite display radii', () => {
+  const geometry = buildComparisonGeometry(
+    [{observation_id: 'a', fetch_ts: '2026-10-01T00:00:00Z'}],
+    () => [3, 4, 5],
+  );
+  assert.deepEqual(geometry.clusters[0].radii, [2, 2, 2]);
+  assert.deepEqual(buildComparisonGeometry([], () => [0, 0, 0]), {clusters: [], lines: []});
 });
