@@ -2,6 +2,6 @@
   "name": "algo-observer-local-preview",
   "private": true,
   "scripts": {
-    "dev": ".venv\\Scripts\\python.exe -m uvicorn app.main:app --app-dir api"
+    "dev": ".venv\\Scripts\\python.exe -m uvicorn app.main:app --app-dir api --env-file .env"
   }
 }
