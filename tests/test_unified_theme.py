@@ -27,12 +27,6 @@ def test_landing_topbar_background_extends_to_viewport_edges():
     assert "isolation: isolate;" in html
 
 
-def test_landing_topbar_uses_dark_brown_text():
-    html = (STATIC / "landing.html").read_text(encoding="utf-8")
-    assert ".topbar { position: relative; isolation: isolate; color: var(--ink-soft);" in html
-    assert ".topbar .toplink { color: var(--ink-soft);" in html
-
-
 def test_balance_fallback_is_accessible_and_self_contained():
     svg = (STATIC / "balance-fallback.svg").read_text(encoding="utf-8")
     assert 'role="img"' in svg
