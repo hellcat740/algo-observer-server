@@ -76,7 +76,7 @@ const signature = [point.observation_id, point.platform_code, point.ip_city,
   point.shipping_city, point.membership_level, point.device_price_score_estimate]
   .map(value => String(value ?? '')).join('|');
 const jitter = ['x', 'y', 'z'].map(axis => (unit(`${signature}|${axis}`) - 0.5) * 6);
-const offset = [priceScale * 28 + jitter[0], couponScale * 20 + jitter[1], timeScale * 36 + jitter[2]];
+const offset = [priceScale * 14 + jitter[0], couponScale * 10 + jitter[1], timeScale * 18 + jitter[2]];
 ```
 
 最终位置为锚点加偏移，空用户归入 `未知用户`。类别颜色使用固定 15 色调色板和 `hash32(category) % palette.length`，空类别返回 `#9b938b`。
