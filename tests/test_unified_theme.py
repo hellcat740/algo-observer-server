@@ -39,6 +39,13 @@ def test_space_view_switch_only_offers_spatial_views():
     assert 'data-view="table"' not in html
 
 
+def test_space_renders_minimum_tree_and_visible_comparison_clusters():
+    js = (STATIC / "js" / "space.js").read_text(encoding="utf-8")
+    assert "descriptor.treeLines.forEach(line => addComparisonLink(line, color));" in js
+    assert "wireframe ? 0.95 : 0.32" in js
+    assert "条组内最小树连线" in js
+
+
 def test_balance_fallback_is_accessible_and_self_contained():
     svg = (STATIC / "balance-fallback.svg").read_text(encoding="utf-8")
     assert 'role="img"' in svg

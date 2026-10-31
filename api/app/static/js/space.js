@@ -495,7 +495,7 @@ function renderComparison() {
       const mesh = new THREE.Mesh(
         new THREE.SphereGeometry(1, 20, 14),
         new THREE.MeshBasicMaterial({
-          color, transparent: true, opacity: wireframe ? 0.82 : 0.2,
+          color, transparent: true, opacity: wireframe ? 0.95 : 0.32,
           wireframe, side: THREE.DoubleSide, depthWrite: false,
         }),
       );
@@ -507,6 +507,7 @@ function renderComparison() {
     }
   }
   descriptor.lines.forEach(line => addComparisonLink(line, color));
+  descriptor.treeLines.forEach(line => addComparisonLink(line, color));
   if (descriptor.clusters.length) {
     frameCamera(descriptor.clusters.map(cluster => cluster.center));
     updateComparisonVisuals();
@@ -523,7 +524,7 @@ function renderComparison() {
   }).join(' ');
   const percent = Number.isFinite(result.diffPct) ? `${result.diffPct.toFixed(2)}%` : '∞';
   const conclusion = {red: '严重疑似', yellow: '关注／低置信', green: '未见明显差异'}[result.conclusion];
-  $('comparison').innerHTML = `<div class="stat-card" style="border-left:3px solid #${color.toString(16)}"><strong style="color:#${color.toString(16)}">${conclusion}</strong>　均价差 ${esc(formatPrice(result.diff * 100))}（${percent}）<br><small>${esc(result.reason)}</small></div><svg viewBox="0 0 300 125" width="100%" height="125" role="img" aria-label="双用户价格序列"><line x1="10" y1="105" x2="290" y2="105" stroke="#34506e"/><polyline points="${polyline(pricedA)}" fill="none" stroke="${userColor(userA)}" stroke-width="2"/><polyline points="${polyline(pricedB)}" fill="none" stroke="${userColor(userB)}" stroke-width="2"/></svg><div><span style="color:${userColor(userA)}">● ${esc(userA)}</span> ${result.low.name === userA ? result.low.n : result.high.n} 个有效点　<span style="color:${userColor(userB)}">● ${esc(userB)}</span> ${result.low.name === userB ? result.low.n : result.high.n} 个有效点</div><div>当前筛选、同一商品、各自 UTC 时间序列；仅使用人民币折算价。排除 ${excluded} 个缺价点；按 24 小时间隔生成 ${descriptor.clusters.length} 个包围椭球和 ${descriptor.lines.length} 条相邻时间簇连线。</div><div>共享口径：关注 ≥5 元且 ≥5%；严重 ≥10 元且 >20%，两侧各 ≥3。</div>`;
+  $('comparison').innerHTML = `<div class="stat-card" style="border-left:3px solid #${color.toString(16)}"><strong style="color:#${color.toString(16)}">${conclusion}</strong>　均价差 ${esc(formatPrice(result.diff * 100))}（${percent}）<br><small>${esc(result.reason)}</small></div><svg viewBox="0 0 300 125" width="100%" height="125" role="img" aria-label="双用户价格序列"><line x1="10" y1="105" x2="290" y2="105" stroke="#34506e"/><polyline points="${polyline(pricedA)}" fill="none" stroke="${userColor(userA)}" stroke-width="2"/><polyline points="${polyline(pricedB)}" fill="none" stroke="${userColor(userB)}" stroke-width="2"/></svg><div><span style="color:${userColor(userA)}">● ${esc(userA)}</span> ${result.low.name === userA ? result.low.n : result.high.n} 个有效点　<span style="color:${userColor(userB)}">● ${esc(userB)}</span> ${result.low.name === userB ? result.low.n : result.high.n} 个有效点</div><div>当前筛选、同一商品、各自 UTC 时间序列；仅使用人民币折算价。排除 ${excluded} 个缺价点；按 24 小时间隔生成 ${descriptor.clusters.length} 个包围椭球、${descriptor.treeLines.length} 条组内最小树连线和 ${descriptor.lines.length} 条相邻时间簇连线。</div><div>共享口径：关注 ≥5 元且 ≥5%；严重 ≥10 元且 >20%，两侧各 ≥3。</div>`;
 }
 
 function populateControls() {
