@@ -150,14 +150,17 @@ function animate() {
   controls.update();
   updateGrids();
   updateCategoryVisuals();
+  updateComparisonVisuals();
   renderer.render(scene, camera);
 }
 animate();
 
-function frameCamera() {
+function frameCamera(positions = null) {
   pressedKeys.clear();
   const bounds = new THREE.Box3();
-  state.layout.positions.forEach(position => bounds.expandByPoint(new THREE.Vector3(...position)));
+  for (const position of positions || state.layout.positions.values()) {
+    bounds.expandByPoint(new THREE.Vector3(...position));
+  }
   const center = bounds.isEmpty() ? new THREE.Vector3(0, 0, 42) : bounds.getCenter(new THREE.Vector3());
   const size = bounds.isEmpty() ? new THREE.Vector3(120, 120, 84) : bounds.getSize(new THREE.Vector3());
   const verticalFit = Math.max(size.y, size.x / Math.max(camera.aspect, 0.35), 40);
@@ -401,6 +404,36 @@ function comparisonPosition(point) {
   return [coordinate[0], coordinate[1], state.view === '2d' ? 0 : coordinate[2]];
 }
 
+function updateComparisonVisuals() {
+  comparisonGroup.children.forEach(object => {
+    const distance = camera.position.distanceTo(object.position);
+    if (object.userData.type === 'comparison-ellipsoid') {
+      const minimumRadius = Math.max(4, distance * 0.025);
+      object.scale.set(...object.userData.radii.map(radius => Math.max(radius, minimumRadius)));
+    } else if (object.userData.type === 'comparison-link') {
+      const thickness = Math.max(0.8, distance * 0.004);
+      object.scale.set(thickness, 1, thickness);
+    }
+  });
+}
+
+function addComparisonLink(line, color) {
+  const from = new THREE.Vector3(...line.from);
+  const to = new THREE.Vector3(...line.to);
+  const direction = to.clone().sub(from);
+  const length = direction.length();
+  if (!Number.isFinite(length) || length < 1e-6) return;
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(1, 1, length, 16, 1, true),
+    new THREE.MeshBasicMaterial({color, transparent: true, opacity: 0.9, depthWrite: false}),
+  );
+  mesh.position.copy(from).add(to).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+  mesh.renderOrder = 4;
+  mesh.userData.type = 'comparison-link';
+  comparisonGroup.add(mesh);
+}
+
 function renderComparison() {
   clearGroup(comparisonGroup);
   comparisonGroup.visible = Boolean(document.querySelector('[data-layer="comparison"]')?.checked);
@@ -432,22 +465,25 @@ function renderComparison() {
   const descriptor = buildComparisonGeometry([...pricedA, ...pricedB], comparisonPosition);
   const color = {red: 0xe46755, yellow: 0xeaae35, green: 0x72b5aa}[result.conclusion];
   for (const cluster of descriptor.clusters) {
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 32, 20),
-      new THREE.MeshBasicMaterial({color, transparent: true, opacity: 0.13, side: THREE.DoubleSide, depthWrite: false}),
-    );
-    mesh.position.set(...cluster.center);
-    mesh.scale.set(...cluster.radii);
-    mesh.renderOrder = 2;
-    comparisonGroup.add(mesh);
+    for (const wireframe of [false, true]) {
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 20, 14),
+        new THREE.MeshBasicMaterial({
+          color, transparent: true, opacity: wireframe ? 0.82 : 0.2,
+          wireframe, side: THREE.DoubleSide, depthWrite: false,
+        }),
+      );
+      mesh.position.set(...cluster.center);
+      mesh.scale.set(...cluster.radii);
+      mesh.renderOrder = wireframe ? 4 : 2;
+      mesh.userData = {type: 'comparison-ellipsoid', radii: cluster.radii};
+      comparisonGroup.add(mesh);
+    }
   }
-  if (descriptor.lines.length) {
-    const positions = descriptor.lines.flatMap(line => [...line.from, ...line.to]);
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({color, transparent: true, opacity: 0.72, depthWrite: false}));
-    lines.renderOrder = 3;
-    comparisonGroup.add(lines);
+  descriptor.lines.forEach(line => addComparisonLink(line, color));
+  if (descriptor.clusters.length) {
+    frameCamera(descriptor.clusters.map(cluster => cluster.center));
+    updateComparisonVisuals();
   }
   const all = [...pricedA, ...pricedB];
   const values = all.map(point => point.normalized_price_cents);

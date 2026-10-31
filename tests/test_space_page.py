@@ -56,7 +56,7 @@ class SpacePageTest(unittest.TestCase):
     def test_scene_uses_required_three_primitives_and_interactions(self):
         source = (API_DIR / "app" / "static" / "js" / "space.js").read_text(encoding="utf-8")
         for token in (
-            "THREE.Points", "THREE.BufferGeometry", "THREE.LineSegments",
+            "THREE.Points", "THREE.BufferGeometry",
             "THREE.Raycaster", "OrbitControls", "normalized_price_cents",
             "toCSV", "play", "window.innerWidth",
             "buildSemanticLayout", "userColor", "movementVector", "keydown",
@@ -70,6 +70,22 @@ class SpacePageTest(unittest.TestCase):
         ):
             self.assertNotIn(removed, source)
         subprocess.run([NODE, "--check", str(API_DIR / "app" / "static" / "js" / "space.js")], check=True)
+
+    def test_comparison_geometry_is_prominent_and_automatically_framed(self):
+        source = (API_DIR / "app" / "static" / "js" / "space.js").read_text(encoding="utf-8")
+        for marker in (
+            "updateComparisonVisuals", "comparison-ellipsoid", "comparison-link",
+            "wireframe,", "frameCamera(descriptor.clusters.map(cluster => cluster.center))",
+            "Math.max(radius, minimumRadius)", "new THREE.CylinderGeometry(1, 1, length",
+        ):
+            self.assertIn(marker, source)
+
+    def test_spatial_canvas_is_larger_on_desktop_and_narrow_screens(self):
+        page = self.client.get("/space").text
+        self.assertIn("#scene{height:clamp(720px,78vh,960px)}", page)
+        self.assertIn("@media(max-width:1100px){#scene{height:720px}}", page)
+        self.assertIn("@media(max-width:700px){#scene{height:640px}}", page)
+        self.assertIn("grid-template-columns:minmax(0,1fr) 320px", page)
 
     def test_spatial_layers_replace_legacy_relation_controls(self):
         page = self.client.get("/space").text
