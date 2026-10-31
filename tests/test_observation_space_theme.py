@@ -24,6 +24,11 @@ def test_space_interaction_and_research_markers_remain():
     assert "采集用户" in html
 
 
+def test_space_side_panel_headings_use_bright_text():
+    html = (STATIC / "space.html").read_text(encoding="utf-8")
+    assert ".side h2{font-size:14px;margin-bottom:11px;color:var(--text)}" in html
+
+
 def test_space_and_dashboard_share_the_mixed_comparison_rule():
     space = (STATIC / "js" / "space.js").read_text(encoding="utf-8")
     dashboard = (STATIC / "lab.html").read_text(encoding="utf-8")
