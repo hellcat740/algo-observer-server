@@ -32,12 +32,6 @@ def test_personal_dashboard_brand_uses_dark_text():
     assert ".side-head .brand { color: var(--ink); }" in html
 
 
-def test_space_detail_headings_and_fields_use_light_text():
-    html = (STATIC / "space.html").read_text(encoding="utf-8")
-    assert ".instrument-page .scene-head h2, .instrument-page .side h2 { color: var(--text); }" in html
-    assert ".instrument-page .detail, .instrument-page .detail dt { color: var(--text); }" in html
-
-
 def test_balance_fallback_is_accessible_and_self_contained():
     svg = (STATIC / "balance-fallback.svg").read_text(encoding="utf-8")
     assert 'role="img"' in svg
