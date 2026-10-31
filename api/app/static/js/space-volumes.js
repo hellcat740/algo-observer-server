@@ -58,10 +58,11 @@ export function buildComparisonGeometry(points, positionFor, thresholdHours = 24
       const values = positioned.map(item => item.position[axis]);
       return Math.max(2, (Math.max(...values) - Math.min(...values)) / 2);
     });
-    return {key: `cluster-${index}`, center, radii, count: positioned.length, treeLines: minimumTree(positioned)};
+    return {key: `cluster-${index}`, center, radii, count: positioned.length};
   }).filter(Boolean);
-  const lines = clusters.slice(1).map((cluster, index) => ({from: clusters[index].center, to: cluster.center}));
-  const treeLines = clusters.flatMap(cluster => cluster.treeLines);
-  return {clusters, lines, treeLines};
+  const positioned = sorted.map(item => ({point: item.point, position: positionFor(item.point)}))
+    .filter(item => Array.isArray(item.position) && item.position.length >= 3 && item.position.every(Number.isFinite));
+  const treeLines = minimumTree(positioned);
+  return {clusters, treeLines};
 }
 
