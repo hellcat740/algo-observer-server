@@ -12,7 +12,8 @@
   body::before { content: ""; position: fixed; inset: 0 0 0 56%; background: var(--honey); z-index: -2; }
   body::after { content: ""; position: fixed; width: 42vw; height: 42vw; right: -17vw; top: -19vw; border: 1px solid rgba(37,28,23,.18); border-radius: 50%; box-shadow: 0 0 0 6vw rgba(255,253,247,.08), 0 0 0 12vw rgba(255,253,247,.06); z-index: -1; }
   .shell { width: min(1480px, 100%); margin: auto; padding: 0 clamp(22px, 4vw, 68px); }
-  .topbar { height: 92px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(37,28,23,.18); }
+  .topbar { position: relative; isolation: isolate; height: 92px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(37,28,23,.18); }
+  .topbar::before { content: ""; position: absolute; inset: 0 calc(50% - 50vw); z-index: -1; background: var(--ink); }
   .brand { display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 700; letter-spacing: .13em; }
   .brand-mark { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--ink); border-radius: 50%; font-family: Georgia, serif; font-size: 17px; }
   .toplink { color: var(--ink); text-decoration: none; font-size: 12px; border-bottom: 1px solid currentColor; padding-bottom: 4px; }

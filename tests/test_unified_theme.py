@@ -20,6 +20,13 @@ def test_landing_loads_shared_theme_without_changing_primary_routes():
     assert 'href="/download"' in html
 
 
+def test_landing_topbar_background_extends_to_viewport_edges():
+    html = (STATIC / "landing.html").read_text(encoding="utf-8")
+    assert ".topbar::before" in html
+    assert "inset: 0 calc(50% - 50vw);" in html
+    assert "isolation: isolate;" in html
+
+
 def test_balance_fallback_is_accessible_and_self_contained():
     svg = (STATIC / "balance-fallback.svg").read_text(encoding="utf-8")
     assert 'role="img"' in svg
