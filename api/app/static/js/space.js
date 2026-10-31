@@ -431,14 +431,10 @@ function comparisonPosition(point) {
 
 function updateComparisonVisuals() {
   comparisonGroup.children.forEach(object => {
+    if (object.userData.type !== 'comparison-link') return;
     const distance = camera.position.distanceTo(object.position);
-    if (object.userData.type === 'comparison-ellipsoid') {
-      const minimumRadius = Math.max(4, distance * 0.025);
-      object.scale.set(...object.userData.radii.map(radius => Math.max(radius, minimumRadius)));
-    } else if (object.userData.type === 'comparison-link') {
-      const thickness = Math.max(0.8, distance * 0.004);
-      object.scale.set(thickness, 1, thickness);
-    }
+    const thickness = Math.max(0.35, distance * 0.0015);
+    object.scale.set(thickness, 1, thickness);
   });
 }
 
@@ -464,7 +460,7 @@ function renderComparison() {
   comparisonGroup.visible = Boolean(document.querySelector('[data-layer="comparison"]')?.checked);
   const groups = buildAnalyzableComparisonGroups(state.filtered)
     .filter(group => !state.selectedProduct || group.productKey === state.selectedProduct);
-  const centers = [];
+  const framingPositions = [];
   const cards = [];
   for (const group of groups) {
     const result = comparePriceGroups(
@@ -474,30 +470,14 @@ function renderComparison() {
     if (result.conclusion === 'nodata') continue;
     const descriptor = buildComparisonGeometry(group.points, comparisonPosition);
     const color = {red: 0xe46755, yellow: 0xeaae35, green: 0x72b5aa}[result.conclusion];
-    for (const cluster of descriptor.clusters) {
-      for (const wireframe of [false, true]) {
-        const mesh = new THREE.Mesh(
-          new THREE.SphereGeometry(1, 20, 14),
-          new THREE.MeshBasicMaterial({
-            color, transparent: true, opacity: wireframe ? 0.95 : 0.32,
-            wireframe, side: THREE.DoubleSide, depthWrite: false,
-          }),
-        );
-        mesh.position.set(...cluster.center);
-        mesh.scale.set(...cluster.radii);
-        mesh.renderOrder = wireframe ? 4 : 2;
-        mesh.userData = {type: 'comparison-ellipsoid', radii: cluster.radii};
-        comparisonGroup.add(mesh);
-      }
-    }
     descriptor.treeLines.forEach(line => addComparisonLink(line, color));
-    centers.push(...descriptor.clusters.map(cluster => cluster.center));
+    framingPositions.push(...group.points.map(comparisonPosition));
     const percent = Number.isFinite(result.diffPct) ? `${result.diffPct.toFixed(2)}%` : '∞';
     const conclusion = {red: '严重疑似', yellow: '关注／低置信', green: '未见明显差异'}[result.conclusion];
     const colorHex = color.toString(16).padStart(6, '0');
-    cards.push(`<div class="stat-card" style="border-left:3px solid #${colorHex}"><strong style="color:#${colorHex}">${esc(group.productName)} · ${conclusion}</strong><br><span style="color:${userColor(group.userA)}">● ${esc(group.userA)}</span> ↔ <span style="color:${userColor(group.userB)}">● ${esc(group.userB)}</span><br>均价差 ${esc(formatPrice(result.diff * 100))}（${percent}）；${group.pointsA.length} / ${group.pointsB.length} 个有效点<br><small>${esc(result.reason)}</small><br><small>按 24 小时间隔生成 ${descriptor.clusters.length} 个包围椭球、${descriptor.treeLines.length} 条组内最小树连线。</small></div>`);
+    cards.push(`<div class="stat-card" style="border-left:3px solid #${colorHex}"><strong style="color:#${colorHex}">${esc(group.productName)} · ${conclusion}</strong><br><span style="color:${userColor(group.userA)}">● ${esc(group.userA)}</span> ↔ <span style="color:${userColor(group.userB)}">● ${esc(group.userB)}</span><br>均价差 ${esc(formatPrice(result.diff * 100))}（${percent}）；${group.pointsA.length} / ${group.pointsB.length} 个有效点<br><small>${esc(result.reason)}</small><br><small>${descriptor.treeLines.length} 条组内最小树细线。</small></div>`);
   }
-  if (centers.length) frameCamera(centers);
+  if (framingPositions.length) frameCamera(framingPositions);
   updateComparisonVisuals();
   $('comparison').innerHTML = cards.length
     ? `${cards.join('')}<div>共享口径：关注 ≥5 元且 ≥5%；严重 ≥10 元且 >20%，两侧各 ≥3。</div>`

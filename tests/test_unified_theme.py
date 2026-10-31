@@ -49,8 +49,11 @@ def test_space_renders_automatic_minimum_trees_for_analyzable_groups():
     assert "compareUserB" not in html + js
     assert "中位价价差最大" in html
     assert "每组一棵最小树" in html
-    assert "wireframe ? 0.95 : 0.32" in js
-    assert "条组内最小树连线" in js
+    for removed in ["comparison-ellipsoid", "SphereGeometry", "wireframe", "descriptor.clusters"]:
+        assert removed not in js
+    assert "Math.max(0.35, distance * 0.0015)" in js
+    assert "frameCamera(framingPositions)" in js
+    assert "条组内最小树细线" in js
 
 
 def test_balance_fallback_is_accessible_and_self_contained():

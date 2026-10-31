@@ -60,7 +60,7 @@ class SpacePageTest(unittest.TestCase):
             "THREE.Raycaster", "OrbitControls", "normalized_price_cents",
             "toCSV", "play", "window.innerWidth",
             "buildSemanticLayout", "userColor", "movementVector", "keydown",
-            "CylinderGeometry", "categoryOpacity", "buildComparisonGeometry", "SphereGeometry", "frameCamera",
+            "CylinderGeometry", "categoryOpacity", "buildComparisonGeometry", "frameCamera",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, source)
@@ -87,14 +87,15 @@ class SpacePageTest(unittest.TestCase):
         category_update = source[source.index("function updateCategoryVisuals()"):source.index("function renderUserLegend()")]
         self.assertNotIn("object.position.z = controls.target.z;\n    const distance", category_update)
 
-    def test_comparison_geometry_is_prominent_and_automatically_framed(self):
+    def test_comparison_tree_is_thin_and_automatically_framed(self):
         source = (API_DIR / "app" / "static" / "js" / "space.js").read_text(encoding="utf-8")
         for marker in (
-            "updateComparisonVisuals", "comparison-ellipsoid", "comparison-link",
-            "wireframe,", "centers.push(...descriptor.clusters.map(cluster => cluster.center))", "frameCamera(centers)",
-            "Math.max(radius, minimumRadius)", "new THREE.CylinderGeometry(1, 1, length",
+            "updateComparisonVisuals", "comparison-link", "frameCamera(framingPositions)",
+            "Math.max(0.35, distance * 0.0015)", "new THREE.CylinderGeometry(1, 1, length",
         ):
             self.assertIn(marker, source)
+        for removed in ("comparison-ellipsoid", "SphereGeometry", "wireframe", "descriptor.clusters"):
+            self.assertNotIn(removed, source)
 
     def test_spatial_canvas_is_larger_on_desktop_and_narrow_screens(self):
         page = self.client.get("/space").text
