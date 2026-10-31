@@ -81,6 +81,13 @@ class SpacePageTest(unittest.TestCase):
         for relation in ("SAME_PRODUCT", "SAME_USER", "SAME_USER_PRODUCT", "TIME_NEIGHBOR", "PRICE_GAP", "PROMO_DIFFERENCE", "ACTIVE_COMPARISON"):
             self.assertNotIn(f'data-relation="{relation}"', page)
 
+    def test_wasd_is_enabled_for_2d_and_3d_but_not_editable_controls(self):
+        source = (API_DIR / "app" / "static" / "js" / "space.js").read_text(encoding="utf-8")
+        self.assertEqual(source.count("!['2d', '3d'].includes(state.view)"), 2)
+        self.assertNotIn("state.view !== '3d' || !pressedKeys.size", source)
+        self.assertIn("editableTarget(event.target)", source)
+        self.assertIn("target.matches('input,select,textarea,[contenteditable=", source)
+
     def test_pure_filter_and_csv_behavior(self):
         core = (API_DIR / "app" / "static" / "js" / "space-core.js").read_bytes()
         module = base64.b64encode(core).decode("ascii")

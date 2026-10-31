@@ -115,7 +115,7 @@ window.addEventListener('resize', resize);
 resize();
 
 function updateMovement(delta) {
-  if (state.view !== '3d' || !pressedKeys.size) return;
+  if (!['2d', '3d'].includes(state.view) || !pressedKeys.size) return;
   const forward = new THREE.Vector3();
   camera.getWorldDirection(forward);
   const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
@@ -620,7 +620,7 @@ function editableTarget(target) {
   return target instanceof HTMLElement && (target.matches('input,select,textarea,[contenteditable="true"]') || target.closest('[contenteditable="true"]'));
 }
 window.addEventListener('keydown', event => {
-  if (state.view !== '3d' || editableTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (!['2d', '3d'].includes(state.view) || editableTarget(event.target) || event.ctrlKey || event.metaKey || event.altKey) return;
   const key = event.key.toLowerCase();
   if (!['w', 'a', 's', 'd'].includes(key)) return;
   pressedKeys.add(key);
