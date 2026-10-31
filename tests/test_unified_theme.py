@@ -49,9 +49,15 @@ def test_space_renders_automatic_minimum_trees_for_analyzable_groups():
     assert "compareUserB" not in html + js
     assert "中位价价差最大" in html
     assert "每组一棵最小树" in html
-    for removed in ["comparison-ellipsoid", "SphereGeometry", "wireframe", "descriptor.clusters"]:
+    for removed in [
+        "comparison-ellipsoid", "SphereGeometry", "wireframe", "descriptor.clusters",
+        "updateComparisonVisuals", "distance * 0.0015",
+        "new THREE.Mesh(\n    new THREE.CylinderGeometry(1, 1, length",
+    ]:
         assert removed not in js
-    assert "Math.max(0.35, distance * 0.0015)" in js
+    assert "new THREE.BufferGeometry().setFromPoints([from, to])" in js
+    assert "new THREE.LineBasicMaterial({color, transparent: true, opacity: 0.9, depthWrite: false})" in js
+    assert "const link = new THREE.Line(geometry, material)" in js
     assert "frameCamera(framingPositions)" in js
     assert "条组内最小树细线" in js
 

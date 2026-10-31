@@ -146,7 +146,6 @@ function animate() {
   controls.update();
   updateGrids();
   updateCategoryVisuals();
-  updateComparisonVisuals();
   renderer.render(scene, camera);
 }
 animate();
@@ -429,30 +428,17 @@ function comparisonPosition(point) {
   return [coordinate[0], coordinate[1], state.view === '2d' ? 0 : coordinate[2]];
 }
 
-function updateComparisonVisuals() {
-  comparisonGroup.children.forEach(object => {
-    if (object.userData.type !== 'comparison-link') return;
-    const distance = camera.position.distanceTo(object.position);
-    const thickness = Math.max(0.35, distance * 0.0015);
-    object.scale.set(thickness, 1, thickness);
-  });
-}
-
 function addComparisonLink(line, color) {
   const from = new THREE.Vector3(...line.from);
   const to = new THREE.Vector3(...line.to);
-  const direction = to.clone().sub(from);
-  const length = direction.length();
+  const length = from.distanceTo(to);
   if (!Number.isFinite(length) || length < 1e-6) return;
-  const mesh = new THREE.Mesh(
-    new THREE.CylinderGeometry(1, 1, length, 16, 1, true),
-    new THREE.MeshBasicMaterial({color, transparent: true, opacity: 0.9, depthWrite: false}),
-  );
-  mesh.position.copy(from).add(to).multiplyScalar(0.5);
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
-  mesh.renderOrder = 4;
-  mesh.userData.type = 'comparison-link';
-  comparisonGroup.add(mesh);
+  const geometry = new THREE.BufferGeometry().setFromPoints([from, to]);
+  const material = new THREE.LineBasicMaterial({color, transparent: true, opacity: 0.9, depthWrite: false});
+  const link = new THREE.Line(geometry, material);
+  link.renderOrder = 4;
+  link.userData.type = 'comparison-link';
+  comparisonGroup.add(link);
 }
 
 function renderComparison() {
@@ -478,7 +464,6 @@ function renderComparison() {
     cards.push(`<div class="stat-card" style="border-left:3px solid #${colorHex}"><strong style="color:#${colorHex}">${esc(group.productName)} · ${conclusion}</strong><br><span style="color:${userColor(group.userA)}">● ${esc(group.userA)}</span> ↔ <span style="color:${userColor(group.userB)}">● ${esc(group.userB)}</span><br>均价差 ${esc(formatPrice(result.diff * 100))}（${percent}）；${group.pointsA.length} / ${group.pointsB.length} 个有效点<br><small>${esc(result.reason)}</small><br><small>${descriptor.treeLines.length} 条组内最小树细线。</small></div>`);
   }
   if (framingPositions.length) frameCamera(framingPositions);
-  updateComparisonVisuals();
   $('comparison').innerHTML = cards.length
     ? `${cards.join('')}<div>共享口径：关注 ≥5 元且 ≥5%；严重 ≥10 元且 >20%，两侧各 ≥3。</div>`
     : '当前筛选与商品选择下，没有具备两位有效用户及折算价的可分析商品组。';

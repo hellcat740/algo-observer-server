@@ -87,14 +87,19 @@ class SpacePageTest(unittest.TestCase):
         category_update = source[source.index("function updateCategoryVisuals()"):source.index("function renderUserLegend()")]
         self.assertNotIn("object.position.z = controls.target.z;\n    const distance", category_update)
 
-    def test_comparison_tree_is_thin_and_automatically_framed(self):
+    def test_comparison_tree_uses_native_lines_and_is_automatically_framed(self):
         source = (API_DIR / "app" / "static" / "js" / "space.js").read_text(encoding="utf-8")
         for marker in (
-            "updateComparisonVisuals", "comparison-link", "frameCamera(framingPositions)",
-            "Math.max(0.35, distance * 0.0015)", "new THREE.CylinderGeometry(1, 1, length",
+            "comparison-link", "frameCamera(framingPositions)",
+            "new THREE.BufferGeometry().setFromPoints([from, to])",
+            "new THREE.LineBasicMaterial({color, transparent: true, opacity: 0.9, depthWrite: false})",
+            "const link = new THREE.Line(geometry, material)",
         ):
             self.assertIn(marker, source)
-        for removed in ("comparison-ellipsoid", "SphereGeometry", "wireframe", "descriptor.clusters"):
+        for removed in (
+            "comparison-ellipsoid", "SphereGeometry", "wireframe", "descriptor.clusters",
+            "updateComparisonVisuals", "distance * 0.0015", "new THREE.Mesh(\n    new THREE.CylinderGeometry(1, 1, length",
+        ):
             self.assertNotIn(removed, source)
 
     def test_spatial_canvas_is_larger_on_desktop_and_narrow_screens(self):
