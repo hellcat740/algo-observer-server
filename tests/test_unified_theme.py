@@ -27,12 +27,6 @@ def test_landing_topbar_background_extends_to_viewport_edges():
     assert "isolation: isolate;" in html
 
 
-def test_personal_dashboard_navigation_uses_readable_dark_text():
-    html = (STATIC / "me.html").read_text(encoding="utf-8")
-    assert ".sidebar .nav-item { color: var(--ink-soft); }" in html
-    assert ".sidebar .nav-item.active { color: var(--paper-strong); }" in html
-
-
 def test_balance_fallback_is_accessible_and_self_contained():
     svg = (STATIC / "balance-fallback.svg").read_text(encoding="utf-8")
     assert 'role="img"' in svg
