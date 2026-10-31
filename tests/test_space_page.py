@@ -91,7 +91,7 @@ class SpacePageTest(unittest.TestCase):
         source = (API_DIR / "app" / "static" / "js" / "space.js").read_text(encoding="utf-8")
         for marker in (
             "updateComparisonVisuals", "comparison-ellipsoid", "comparison-link",
-            "wireframe,", "frameCamera(descriptor.clusters.map(cluster => cluster.center))",
+            "wireframe,", "centers.push(...descriptor.clusters.map(cluster => cluster.center))", "frameCamera(centers)",
             "Math.max(radius, minimumRadius)", "new THREE.CylinderGeometry(1, 1, length",
         ):
             self.assertIn(marker, source)

@@ -4,6 +4,7 @@ import { filterPoints, toCSV } from './space-core.js';
 import { buildSemanticLayout, userColor } from './space-layout.js';
 import { movementVector } from './space-navigation.js';
 import { buildComparisonGeometry, categoryOpacity } from './space-volumes.js';
+import { buildAnalyzableComparisonGroups } from './space-comparison.js';
 import { comparePriceGroups } from './comparison-rule.js';
 import { createMockData } from './space-mock.js';
 
@@ -263,10 +264,12 @@ function updateCategoryVisuals() {
 
 function renderUserLegend() {
   const users = [...new Set(state.filtered.map(point => point.user_pseudonym || '未知用户'))].sort();
-  const selected = new Set([$('compareUserA').value, $('compareUserB').value]);
+  const compared = new Set(buildAnalyzableComparisonGroups(state.filtered)
+    .filter(group => !state.selectedProduct || group.productKey === state.selectedProduct)
+    .flatMap(group => [group.userA, group.userB]));
   $('userLegend').innerHTML = users.length ? users.map(user => {
     const color = userColor(user === '未知用户' ? '' : user);
-    const weight = selected.has(user) ? 'font-weight:700' : '';
+    const weight = compared.has(user) ? 'font-weight:700' : '';
     return `<span style="color:${color};${weight}">● ${esc(user)}</span>`;
   }).join('') : '暂无可见用户';
 }
@@ -421,10 +424,6 @@ function renderStatistics() {
   $('statisticsList').innerHTML = platform + rows || '暂无跨用户可比样本。';
 }
 
-function comparisonSeries(user, productKey) {
-  return state.filtered.filter(point => point.product_key === productKey && point.user_pseudonym === user).sort((a, b) => Date.parse(a.fetch_ts) - Date.parse(b.fetch_ts));
-}
-
 function comparisonPosition(point) {
   const coordinate = state.layout.positions.get(point.observation_id) || [0, 0, 0];
   return [coordinate[0], coordinate[1], state.view === '2d' ? 0 : coordinate[2]];
@@ -463,68 +462,46 @@ function addComparisonLink(line, color) {
 function renderComparison() {
   clearGroup(comparisonGroup);
   comparisonGroup.visible = Boolean(document.querySelector('[data-layer="comparison"]')?.checked);
-  const userA = $('compareUserA').value;
-  const userB = $('compareUserB').value;
-  const productKey = state.selectedProduct || (new Set(state.filtered.map(point => point.product_key)).size === 1 ? state.filtered[0]?.product_key : null);
-  if (!userA || !userB || userA === userB || !productKey) {
-    $('comparison').textContent = '选择两个不同用户，并点击一个商品点或筛选到单一商品。';
-    return;
-  }
-  const a = comparisonSeries(userA, productKey);
-  const b = comparisonSeries(userB, productKey);
-  if (!a.length || !b.length) {
-    $('comparison').textContent = '当前筛选与商品下至少一组没有观测序列。';
-    return;
-  }
-  const valid = point => Number.isFinite(point.normalized_price_cents) && point.normalized_price_cents >= 0;
-  const pricedA = a.filter(valid);
-  const pricedB = b.filter(valid);
-  const result = comparePriceGroups(
-    {name: userA, prices: pricedA.map(point => point.normalized_price_cents / 100)},
-    {name: userB, prices: pricedB.map(point => point.normalized_price_cents / 100)},
-  );
-  const excluded = a.length + b.length - pricedA.length - pricedB.length;
-  if (result.conclusion === 'nodata') {
-    $('comparison').textContent = `至少一侧没有有效人民币折算价，无法比对；已排除 ${excluded} 个缺价点。`;
-    return;
-  }
-  const descriptor = buildComparisonGeometry([...pricedA, ...pricedB], comparisonPosition);
-  const color = {red: 0xe46755, yellow: 0xeaae35, green: 0x72b5aa}[result.conclusion];
-  for (const cluster of descriptor.clusters) {
-    for (const wireframe of [false, true]) {
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(1, 20, 14),
-        new THREE.MeshBasicMaterial({
-          color, transparent: true, opacity: wireframe ? 0.95 : 0.32,
-          wireframe, side: THREE.DoubleSide, depthWrite: false,
-        }),
-      );
-      mesh.position.set(...cluster.center);
-      mesh.scale.set(...cluster.radii);
-      mesh.renderOrder = wireframe ? 4 : 2;
-      mesh.userData = {type: 'comparison-ellipsoid', radii: cluster.radii};
-      comparisonGroup.add(mesh);
+  const groups = buildAnalyzableComparisonGroups(state.filtered)
+    .filter(group => !state.selectedProduct || group.productKey === state.selectedProduct);
+  const centers = [];
+  const cards = [];
+  for (const group of groups) {
+    const result = comparePriceGroups(
+      {name: group.userA, prices: group.pointsA.map(point => point.normalized_price_cents / 100)},
+      {name: group.userB, prices: group.pointsB.map(point => point.normalized_price_cents / 100)},
+    );
+    if (result.conclusion === 'nodata') continue;
+    const descriptor = buildComparisonGeometry(group.points, comparisonPosition);
+    const color = {red: 0xe46755, yellow: 0xeaae35, green: 0x72b5aa}[result.conclusion];
+    for (const cluster of descriptor.clusters) {
+      for (const wireframe of [false, true]) {
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(1, 20, 14),
+          new THREE.MeshBasicMaterial({
+            color, transparent: true, opacity: wireframe ? 0.95 : 0.32,
+            wireframe, side: THREE.DoubleSide, depthWrite: false,
+          }),
+        );
+        mesh.position.set(...cluster.center);
+        mesh.scale.set(...cluster.radii);
+        mesh.renderOrder = wireframe ? 4 : 2;
+        mesh.userData = {type: 'comparison-ellipsoid', radii: cluster.radii};
+        comparisonGroup.add(mesh);
+      }
     }
+    descriptor.treeLines.forEach(line => addComparisonLink(line, color));
+    centers.push(...descriptor.clusters.map(cluster => cluster.center));
+    const percent = Number.isFinite(result.diffPct) ? `${result.diffPct.toFixed(2)}%` : '∞';
+    const conclusion = {red: '严重疑似', yellow: '关注／低置信', green: '未见明显差异'}[result.conclusion];
+    const colorHex = color.toString(16).padStart(6, '0');
+    cards.push(`<div class="stat-card" style="border-left:3px solid #${colorHex}"><strong style="color:#${colorHex}">${esc(group.productName)} · ${conclusion}</strong><br><span style="color:${userColor(group.userA)}">● ${esc(group.userA)}</span> ↔ <span style="color:${userColor(group.userB)}">● ${esc(group.userB)}</span><br>均价差 ${esc(formatPrice(result.diff * 100))}（${percent}）；${group.pointsA.length} / ${group.pointsB.length} 个有效点<br><small>${esc(result.reason)}</small><br><small>按 24 小时间隔生成 ${descriptor.clusters.length} 个包围椭球、${descriptor.treeLines.length} 条组内最小树连线。</small></div>`);
   }
-  descriptor.lines.forEach(line => addComparisonLink(line, color));
-  descriptor.treeLines.forEach(line => addComparisonLink(line, color));
-  if (descriptor.clusters.length) {
-    frameCamera(descriptor.clusters.map(cluster => cluster.center));
-    updateComparisonVisuals();
-  }
-  const all = [...pricedA, ...pricedB];
-  const values = all.map(point => point.normalized_price_cents);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const polyline = series => series.map((point, index) => {
-    const value = point.normalized_price_cents;
-    const x = series.length === 1 ? 150 : 10 + index / (series.length - 1) * 280;
-    const y = max === min ? 60 : 105 - (value - min) / (max - min) * 90;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
-  const percent = Number.isFinite(result.diffPct) ? `${result.diffPct.toFixed(2)}%` : '∞';
-  const conclusion = {red: '严重疑似', yellow: '关注／低置信', green: '未见明显差异'}[result.conclusion];
-  $('comparison').innerHTML = `<div class="stat-card" style="border-left:3px solid #${color.toString(16)}"><strong style="color:#${color.toString(16)}">${conclusion}</strong>　均价差 ${esc(formatPrice(result.diff * 100))}（${percent}）<br><small>${esc(result.reason)}</small></div><svg viewBox="0 0 300 125" width="100%" height="125" role="img" aria-label="双用户价格序列"><line x1="10" y1="105" x2="290" y2="105" stroke="#34506e"/><polyline points="${polyline(pricedA)}" fill="none" stroke="${userColor(userA)}" stroke-width="2"/><polyline points="${polyline(pricedB)}" fill="none" stroke="${userColor(userB)}" stroke-width="2"/></svg><div><span style="color:${userColor(userA)}">● ${esc(userA)}</span> ${result.low.name === userA ? result.low.n : result.high.n} 个有效点　<span style="color:${userColor(userB)}">● ${esc(userB)}</span> ${result.low.name === userB ? result.low.n : result.high.n} 个有效点</div><div>当前筛选、同一商品、各自 UTC 时间序列；仅使用人民币折算价。排除 ${excluded} 个缺价点；按 24 小时间隔生成 ${descriptor.clusters.length} 个包围椭球、${descriptor.treeLines.length} 条组内最小树连线和 ${descriptor.lines.length} 条相邻时间簇连线。</div><div>共享口径：关注 ≥5 元且 ≥5%；严重 ≥10 元且 >20%，两侧各 ≥3。</div>`;
+  if (centers.length) frameCamera(centers);
+  updateComparisonVisuals();
+  $('comparison').innerHTML = cards.length
+    ? `${cards.join('')}<div>共享口径：关注 ≥5 元且 ≥5%；严重 ≥10 元且 >20%，两侧各 ≥3。</div>`
+    : '当前筛选与商品选择下，没有具备两位有效用户及折算价的可分析商品组。';
 }
 
 function populateControls() {
@@ -537,8 +514,6 @@ function populateControls() {
   };
   fill('platformFilter', points.map(point => point.platform_code), '全部平台');
   fill('categoryFilter', points.map(point => point.category_l1 || ''), '全部分类');
-  fill('compareUserA', points.map(point => point.user_pseudonym), '请选择');
-  fill('compareUserB', points.map(point => point.user_pseudonym), '请选择');
   const timeline = [...points].sort((a, b) => Date.parse(a.fetch_ts) - Date.parse(b.fetch_ts));
   $('playPosition').max = Math.max(0, timeline.length - 1);
   $('playPosition').value = $('playPosition').max;
@@ -702,7 +677,6 @@ document.addEventListener('visibilitychange', () => {
 ['startTime','endTime'].forEach(id => $(id).addEventListener('change', applyFilters));
 document.querySelectorAll('[data-layer]').forEach(input => input.addEventListener('change', applyFilters));
 document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => switchView(button.dataset.view)));
-['compareUserA','compareUserB'].forEach(id => $(id).addEventListener('change', applyFilters));
 $('playPosition').addEventListener('input', () => { updatePlayLabel(); applyFilters(); });
 $('playButton').addEventListener('click', play);
 $('refreshButton').addEventListener('click', loadData);

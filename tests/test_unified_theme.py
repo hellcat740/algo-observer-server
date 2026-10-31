@@ -39,9 +39,16 @@ def test_space_view_switch_only_offers_spatial_views():
     assert 'data-view="table"' not in html
 
 
-def test_space_renders_minimum_tree_and_visible_comparison_clusters():
+def test_space_renders_automatic_minimum_trees_for_analyzable_groups():
+    html = (STATIC / "space.html").read_text(encoding="utf-8")
     js = (STATIC / "js" / "space.js").read_text(encoding="utf-8")
+    assert "buildAnalyzableComparisonGroups(state.filtered)" in js
     assert "descriptor.treeLines.forEach(line => addComparisonLink(line, color));" in js
+    assert "descriptor.lines" not in js
+    assert "compareUserA" not in html + js
+    assert "compareUserB" not in html + js
+    assert "中位价价差最大" in html
+    assert "每组一棵最小树" in html
     assert "wireframe ? 0.95 : 0.32" in js
     assert "条组内最小树连线" in js
 
