@@ -33,6 +33,17 @@ test('comparison geometry groups nearby times and connects adjacent clusters', (
   assert.ok(geometry.clusters.every(cluster => cluster.radii.every(Number.isFinite)));
 });
 
+test('comparison geometry adds a stable minimum tree within each time cluster', () => {
+  const points = ['a', 'b', 'c'].map(observation_id => ({observation_id, fetch_ts: '2026-10-01T00:00:00Z'}));
+  const positions = {a: [0, 0, 0], b: [3, 0, 0], c: [3, 4, 0]};
+  const geometry = buildComparisonGeometry(points, point => positions[point.observation_id]);
+  assert.equal(geometry.treeLines.length, 2);
+  assert.deepEqual(geometry.treeLines, [
+    {from: [0, 0, 0], to: [3, 0, 0]},
+    {from: [3, 0, 0], to: [3, 4, 0]},
+  ]);
+});
+
 test('comparison geometry includes observations exactly 24 hours apart', () => {
   const points = [
     {observation_id: 'a', fetch_ts: '2026-10-01T00:00:00Z'},
@@ -63,5 +74,6 @@ test('single-point comparison clusters have finite display radii', () => {
     () => [3, 4, 5],
   );
   assert.deepEqual(geometry.clusters[0].radii, [2, 2, 2]);
-  assert.deepEqual(buildComparisonGeometry([], () => [0, 0, 0]), {clusters: [], lines: []});
+  assert.deepEqual(geometry.treeLines, []);
+  assert.deepEqual(buildComparisonGeometry([], () => [0, 0, 0]), {clusters: [], lines: [], treeLines: []});
 });

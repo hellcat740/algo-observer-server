@@ -5,6 +5,33 @@ export function categoryOpacity(level, distance) {
   return near + (far - near) * progress;
 }
 
+function minimumTree(positioned) {
+  const visited = new Set([0]);
+  const lines = [];
+  while (visited.size < positioned.length) {
+    let best = null;
+    for (const fromIndex of visited) {
+      for (let toIndex = 0; toIndex < positioned.length; toIndex += 1) {
+        if (visited.has(toIndex)) continue;
+        const from = positioned[fromIndex].position;
+        const to = positioned[toIndex].position;
+        const distance = Math.hypot(...from.map((value, axis) => to[axis] - value));
+        if (!Number.isFinite(distance) || distance < 1e-6) continue;
+        const candidate = {from, to, distance, fromIndex, toIndex};
+        if (!best || distance < best.distance
+          || (distance === best.distance && `${positioned[fromIndex].point.observation_id}:${positioned[toIndex].point.observation_id}`
+            < `${positioned[best.fromIndex].point.observation_id}:${positioned[best.toIndex].point.observation_id}`)) {
+          best = candidate;
+        }
+      }
+    }
+    if (!best) break;
+    lines.push({from: best.from, to: best.to});
+    visited.add(best.toIndex);
+  }
+  return lines;
+}
+
 export function buildComparisonGeometry(points, positionFor, thresholdHours = 24) {
   const sorted = (points || []).map(point => ({point, time: Date.parse(point.fetch_ts)}))
     .filter(item => Number.isFinite(item.time))
@@ -31,9 +58,10 @@ export function buildComparisonGeometry(points, positionFor, thresholdHours = 24
       const values = positioned.map(item => item.position[axis]);
       return Math.max(2, (Math.max(...values) - Math.min(...values)) / 2);
     });
-    return {key: `cluster-${index}`, center, radii, count: positioned.length};
+    return {key: `cluster-${index}`, center, radii, count: positioned.length, treeLines: minimumTree(positioned)};
   }).filter(Boolean);
   const lines = clusters.slice(1).map((cluster, index) => ({from: clusters[index].center, to: cluster.center}));
-  return {clusters, lines};
+  const treeLines = clusters.flatMap(cluster => cluster.treeLines);
+  return {clusters, lines, treeLines};
 }
 
