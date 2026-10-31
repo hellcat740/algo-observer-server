@@ -32,6 +32,13 @@ def test_personal_dashboard_brand_uses_dark_text():
     assert ".side-head .brand { color: var(--ink); }" in html
 
 
+def test_space_view_switch_only_offers_spatial_views():
+    html = (STATIC / "space.html").read_text(encoding="utf-8")
+    assert 'data-view="3d"' in html
+    assert 'data-view="2d"' in html
+    assert 'data-view="table"' not in html
+
+
 def test_balance_fallback_is_accessible_and_self_contained():
     svg = (STATIC / "balance-fallback.svg").read_text(encoding="utf-8")
     assert 'role="img"' in svg
