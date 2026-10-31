@@ -66,10 +66,26 @@ class SpacePageTest(unittest.TestCase):
                 self.assertIn(token, source)
         for removed in (
             "businessCoordinates", "featureProjection", "AxesHelper", "coordinateMode", "colorDimension",
-            "comparisonCircleGeometry", "SpriteMaterial", "categoryLabel", "relationGroup", "renderRelations",
+            "comparisonCircleGeometry", "relationGroup", "renderRelations",
         ):
             self.assertNotIn(removed, source)
         subprocess.run([NODE, "--check", str(API_DIR / "app" / "static" / "js" / "space.js")], check=True)
+
+    def test_grids_stay_in_world_coordinates_and_category_labels_are_restored(self):
+        source = (API_DIR / "app" / "static" / "js" / "space.js").read_text(encoding="utf-8")
+        grid_update = source[source.index("function updateGrids()"):source.index("function animate()")]
+        self.assertNotIn("plane.position.set", grid_update)
+        self.assertNotIn("controls.target.x", grid_update)
+        self.assertNotIn("controls.target.y", grid_update)
+        self.assertNotIn("controls.target.z", grid_update)
+        for marker in (
+            "function categoryLabel(category)", "new THREE.CanvasTexture(canvas)",
+            "new THREE.SpriteMaterial", "categoryGroup.add(categoryLabel(category))",
+            "type: 'label'", "selectedL2", "object.userData.type === 'volume'",
+        ):
+            self.assertIn(marker, source)
+        category_update = source[source.index("function updateCategoryVisuals()"):source.index("function renderUserLegend()")]
+        self.assertNotIn("object.position.z = controls.target.z;\n    const distance", category_update)
 
     def test_comparison_geometry_is_prominent_and_automatically_framed(self):
         source = (API_DIR / "app" / "static" / "js" / "space.js").read_text(encoding="utf-8")

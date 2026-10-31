@@ -134,11 +134,6 @@ function updateGrids() {
   gridPlanes.forEach((plane, index) => {
     plane.visible = state.view === '3d' || index === 0;
     plane.material.uniforms.uStep.value = step;
-    plane.position.set(
-      Math.round(controls.target.x / step) * step,
-      Math.round(controls.target.y / step) * step,
-      Math.round(controls.target.z / step) * step,
-    );
   });
 }
 
@@ -201,6 +196,28 @@ function clearGroup(group) {
   }
 }
 
+function categoryLabel(category) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 128;
+  const context = canvas.getContext('2d');
+  context.clearRect(0, 0, 512, 128);
+  context.font = `${category.level === 1 ? 600 : 500} ${category.level === 1 ? 48 : 40}px "Microsoft YaHei", sans-serif`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillStyle = category.level === 1 ? '#e1d7c8' : '#b8ad9d';
+  context.fillText(category.level === 1 ? category.l1 : category.l2, 256, 64, 480);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const material = new THREE.SpriteMaterial({map: texture, transparent: true, opacity: 0.88, depthWrite: false});
+  const sprite = new THREE.Sprite(material);
+  sprite.position.set(category.center[0], category.center[1], 0.25);
+  sprite.center.set(0.5, 0);
+  sprite.renderOrder = 4;
+  sprite.userData = {type: 'label', level: category.level, key: category.key};
+  return sprite;
+}
+
 function renderCategories() {
   clearGroup(categoryGroup);
   const visible = new Set();
@@ -221,17 +238,26 @@ function renderCategories() {
     cylinder.renderOrder = 0;
     cylinder.userData = {type: 'volume', level: category.level, key: category.key};
     categoryGroup.add(cylinder);
+    categoryGroup.add(categoryLabel(category));
   });
   updateCategoryVisuals();
 }
 
 function updateCategoryVisuals() {
   categoryGroup.visible = Boolean(document.querySelector('[data-layer="categories"]')?.checked);
+  const selectedL2 = state.selectedPoint ? `L2:${state.selectedPoint.category_l1}/${state.selectedPoint.category_l2}` : null;
   categoryGroup.children.forEach(object => {
-    object.position.z = controls.target.z;
     const distance = camera.position.distanceTo(object.position);
-    object.visible = state.view === '3d';
-    object.material.opacity = categoryOpacity(object.userData.level, distance);
+    if (object.userData.type === 'volume') {
+      object.position.z = controls.target.z;
+      object.visible = state.view === '3d';
+      object.material.opacity = categoryOpacity(object.userData.level, distance);
+    } else {
+      const worldHeight = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const height = THREE.MathUtils.clamp(worldHeight * 0.04, 2.5, 13);
+      object.scale.set(height * 4, height, 1);
+      object.visible = state.view === '3d' && (object.userData.level === 1 || distance < 150 || object.userData.key === selectedL2);
+    }
   });
 }
 
