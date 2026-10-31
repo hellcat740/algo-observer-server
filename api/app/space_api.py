@@ -41,6 +41,7 @@ router = APIRouter(
 
 _status_lock = threading.Lock()
 _classification_state = {}
+_auto_classification_attempts = set()
 
 
 def _utc_now():
@@ -50,6 +51,7 @@ def _utc_now():
 def reset_classification_status():
     with _status_lock:
         _classification_state.clear()
+        _auto_classification_attempts.clear()
         _classification_state.update({
             "status": "idle",
             "processed": 0,
@@ -102,6 +104,11 @@ def run_classification_worker(products, session_factory=None, classifier=None):
 
 
 def schedule_classification(background_tasks, products):
+    with _status_lock:
+        products = [
+            product for product in products
+            if cache_key(product) not in _auto_classification_attempts
+        ]
     if not products:
         return get_classification_status()
     current = get_classification_status()
@@ -113,6 +120,8 @@ def schedule_classification(background_tasks, products):
             started_at=None, finished_at=None, message="未配置商品分类服务",
         )
         return get_classification_status()
+    with _status_lock:
+        _auto_classification_attempts.update(cache_key(product) for product in products)
     _update_classification_status(
         status="running", processed=0, total=len(products),
         started_at=_utc_now(), finished_at=None, message="",

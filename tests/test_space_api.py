@@ -194,6 +194,23 @@ class SpaceApiTest(unittest.TestCase):
         self.assertEqual(response.json()["meta"]["classification_status"], "running")
         worker.assert_called_once()
 
+    def test_failed_products_are_not_auto_retried_on_every_points_reload(self):
+        from app import space_api
+        space_api.reset_classification_status()
+        with patch.dict(os.environ, {
+            "CLASSIFICATION_PROVIDER": "qwen", "QWEN_API_KEY": "test-qwen"
+        }, clear=True), patch(
+            "app.space_api.run_classification_worker",
+            side_effect=lambda *args, **kwargs: space_api._update_classification_status(status="success"),
+        ) as worker:
+            first = self.get()
+            second = self.get()
+        self.assertEqual(first.status_code, 200, first.text)
+        self.assertEqual(second.status_code, 200, second.text)
+        self.assertEqual(first.json()["meta"]["uncached_products"], 1)
+        self.assertEqual(second.json()["meta"]["uncached_products"], 1)
+        worker.assert_called_once()
+
 
 class SpaceClassificationWorkerTest(unittest.TestCase):
     def setUp(self):
