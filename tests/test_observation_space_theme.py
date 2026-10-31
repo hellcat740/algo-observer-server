@@ -11,7 +11,7 @@ def test_visualization_pages_share_balance_theme():
 def test_space_interaction_and_research_markers_remain():
     html = (STATIC / "space.html").read_text(encoding="utf-8")
     js = (STATIC / "js" / "space.js").read_text(encoding="utf-8")
-    for marker in ["data-relation", "data-view", "platformFilter", "categoryFilter", "playPosition", "统计疑似不等于法律认定"]:
+    for marker in ["data-layer", "data-view", "platformFilter", "categoryFilter", "playPosition", "统计疑似不等于法律认定"]:
         assert marker in html
     for marker in ["buildSemanticLayout", "movementVector", "userColor", "filterPoints", "toCSV", "/api/space/points"]:
         assert marker in js
@@ -19,7 +19,8 @@ def test_space_interaction_and_research_markers_remain():
         assert removed not in js
     assert "coordinateMode" not in html
     assert "colorDimension" not in html
-    assert "ACTIVE_COMPARISON" in html
+    assert 'data-layer="comparison"' in html
+    assert "data-relation" not in html
     assert "采集用户" in html
 
 
@@ -29,7 +30,7 @@ def test_space_and_dashboard_share_the_mixed_comparison_rule():
     for source in [space, dashboard]:
         assert "comparison-rule.js" in source
         assert "comparePriceGroups" in source
-    assert "buildComparisonPairs" in space
+    assert "buildComparisonGeometry" in space
     assert "{ name: A.u, prices: A.prices }" in dashboard
     assert "if (diffPct >= 5 && !r.smallSample)" not in dashboard
     assert "关注 ≥5 元且 ≥5%；严重 ≥10 元且 >20%，两侧各 ≥3" in dashboard

@@ -3,8 +3,7 @@ import { OrbitControls } from '/static/vendor/OrbitControls.js';
 import { filterPoints, toCSV } from './space-core.js';
 import { buildSemanticLayout, userColor } from './space-layout.js';
 import { movementVector } from './space-navigation.js';
-import { categoryOpacity, comparisonCircleGeometry } from './space-volumes.js';
-import { buildComparisonPairs } from './space-comparison.js';
+import { buildComparisonGeometry, categoryOpacity } from './space-volumes.js';
 import { comparePriceGroups } from './comparison-rule.js';
 import { createMockData } from './space-mock.js';
 
@@ -14,11 +13,7 @@ const state = {
   data: emptyData(), filtered: [], layout: buildSemanticLayout([], {}),
   selectedProduct: null, selectedPoint: null,
   view: window.innerWidth < 700 ? '2d' : '3d', mock: false, playing: false,
-  playTimer: null, classificationTimer: null, visibleEdges: 0,
-};
-const relationColors = {
-  SAME_PRODUCT: 0x8fa8b8, SAME_USER: 0xa89ab8, SAME_USER_PRODUCT: 0x72b5aa,
-  TIME_NEIGHBOR: 0x9b8877, PRICE_GAP: 0xeaae35, PROMO_DIFFERENCE: 0xd98b62,
+  playTimer: null, classificationTimer: null,
 };
 const statusNames = {idle: '分类空闲', running: '后台分类中', success: '分类已更新', error: '后台分类失败', not_configured: '分类服务未配置'};
 const pressedKeys = new Set();
@@ -99,9 +94,6 @@ const gridPlanes = [
 const categoryGroup = new THREE.Group();
 categoryGroup.renderOrder = 0;
 scene.add(categoryGroup);
-const relationGroup = new THREE.Group();
-relationGroup.renderOrder = 2;
-scene.add(relationGroup);
 const comparisonGroup = new THREE.Group();
 comparisonGroup.renderOrder = 3;
 scene.add(comparisonGroup);
@@ -158,7 +150,6 @@ function animate() {
   controls.update();
   updateGrids();
   updateCategoryVisuals();
-  updateComparisonVisuals();
   renderer.render(scene, camera);
 }
 animate();
@@ -207,28 +198,6 @@ function clearGroup(group) {
   }
 }
 
-function categoryLabel(category) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 128;
-  const context = canvas.getContext('2d');
-  context.clearRect(0, 0, 512, 128);
-  context.font = `${category.level === 1 ? 600 : 500} ${category.level === 1 ? 48 : 40}px "Microsoft YaHei", sans-serif`;
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.fillStyle = category.level === 1 ? '#e1d7c8' : '#b8ad9d';
-  context.fillText(category.level === 1 ? category.l1 : category.l2, 256, 64, 480);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  const material = new THREE.SpriteMaterial({map: texture, transparent: true, opacity: 0.88, depthWrite: false});
-  const sprite = new THREE.Sprite(material);
-  sprite.position.set(category.center[0], category.center[1], 0.25);
-  sprite.center.set(0.5, 0);
-  sprite.renderOrder = 4;
-  sprite.userData = {type: 'label', level: category.level, key: category.key};
-  return sprite;
-}
-
 function renderCategories() {
   clearGroup(categoryGroup);
   const visible = new Set();
@@ -237,7 +206,7 @@ function renderCategories() {
     visible.add(`L2:${point.category_l1 || '其他／无法判断'}/${point.category_l2 || '无法判断'}`);
   });
   state.layout.categories.filter(category => visible.has(category.key)).forEach(category => {
-    const geometry = new THREE.CylinderGeometry(category.radius, category.radius, category.height, 64, 1, true);
+    const geometry = new THREE.CylinderGeometry(category.radius, category.radius, 20000, 64, 1, true);
     const material = new THREE.MeshBasicMaterial({
       color: category.level === 1 ? 0x635d54 : 0x776b57,
       transparent: true, opacity: categoryOpacity(category.level, 240),
@@ -245,57 +214,22 @@ function renderCategories() {
     });
     const cylinder = new THREE.Mesh(geometry, material);
     cylinder.rotation.x = Math.PI / 2;
-    cylinder.position.set(category.center[0], category.center[1], category.base + category.height / 2);
+    cylinder.position.set(category.center[0], category.center[1], controls.target.z);
     cylinder.renderOrder = 0;
     cylinder.userData = {type: 'volume', level: category.level, key: category.key};
     categoryGroup.add(cylinder);
-    categoryGroup.add(categoryLabel(category));
   });
   updateCategoryVisuals();
 }
 
 function updateCategoryVisuals() {
-  const selectedL2 = state.selectedPoint ? `L2:${state.selectedPoint.category_l1}/${state.selectedPoint.category_l2}` : null;
+  categoryGroup.visible = Boolean(document.querySelector('[data-layer="categories"]')?.checked);
   categoryGroup.children.forEach(object => {
+    object.position.z = controls.target.z;
     const distance = camera.position.distanceTo(object.position);
-    if (object.userData.type === 'volume') {
-      object.visible = state.view === '3d';
-      object.material.opacity = categoryOpacity(object.userData.level, distance);
-    } else {
-      const worldHeight = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-      const height = THREE.MathUtils.clamp(worldHeight * 0.04, 2.5, 13);
-      object.scale.set(height * 4, height, 1);
-      object.visible = object.userData.level === 1 || distance < 150 || object.userData.key === selectedL2;
-    }
+    object.visible = state.view === '3d';
+    object.material.opacity = categoryOpacity(object.userData.level, distance);
   });
-}
-
-function renderRelations(positionById) {
-  while (relationGroup.children.length) {
-    const child = relationGroup.children[0];
-    relationGroup.remove(child);
-    disposeObject(child);
-  }
-  const enabled = new Set([...document.querySelectorAll('[data-relation]:checked')].map(input => input.dataset.relation));
-  const byType = new Map();
-  state.data.edges.forEach(edge => {
-    if (!enabled.has(edge.type) || !positionById.has(edge.source) || !positionById.has(edge.target)) return;
-    if (!byType.has(edge.type)) byType.set(edge.type, []);
-    byType.get(edge.type).push(edge);
-  });
-  state.visibleEdges = 0;
-  byType.forEach((edges, type) => {
-    const positions = [];
-    edges.forEach(edge => positions.push(...positionById.get(edge.source), ...positionById.get(edge.target)));
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    const material = new THREE.LineBasicMaterial({color: relationColors[type] || 0x8093a8, transparent: true, opacity: type === 'PRICE_GAP' ? 0.72 : 0.24, depthWrite: false});
-    const lines = new THREE.LineSegments(geometry, material);
-    lines.renderOrder = 2;
-    relationGroup.add(lines);
-    state.visibleEdges += edges.length;
-  });
-  $('edgeMeta').textContent = `${state.visibleEdges} 条可见关系 / ${state.data.edges.length} 条已返回`;
 }
 
 function renderUserLegend() {
@@ -317,12 +251,11 @@ function renderScene() {
   const points = state.filtered;
   $('emptyState').hidden = points.length > 0;
   renderCategories();
+  $('edgeMeta').textContent = `${state.data.edges.length} 条后台关系候选`;
   if (!points.length) {
-    renderRelations(new Map());
     renderUserLegend();
     return;
   }
-  const positionById = new Map();
   const positions = new Float32Array(points.length * 3);
   const colors = new Float32Array(points.length * 3);
   const sizes = new Float32Array(points.length);
@@ -331,7 +264,6 @@ function renderScene() {
   points.forEach((point, index) => {
     const coordinate = state.layout.positions.get(point.observation_id) || [0, 0, 0];
     const position = [coordinate[0], coordinate[1], state.view === '2d' ? 0 : coordinate[2]];
-    positionById.set(point.observation_id, position);
     positions.set(position, index * 3);
     const color = new THREE.Color(userColor(point.user_pseudonym));
     colors.set([color.r, color.g, color.b], index * 3);
@@ -379,7 +311,6 @@ function renderScene() {
   pointCloud = new THREE.Points(geometry, material);
   pointCloud.renderOrder = 10;
   scene.add(pointCloud);
-  renderRelations(positionById);
   renderUserLegend();
 }
 
@@ -470,25 +401,9 @@ function comparisonPosition(point) {
   return [coordinate[0], coordinate[1], state.view === '2d' ? 0 : coordinate[2]];
 }
 
-function updateComparisonVisuals() {
-  comparisonGroup.visible = Boolean(document.querySelector('[data-relation="ACTIVE_COMPARISON"]')?.checked);
-  const circleMesh = comparisonGroup.children.find(child => child.userData.type === 'comparison-circle');
-  if (!circleMesh || !state.currentComparison) return;
-  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
-  const descriptor = comparisonCircleGeometry(state.currentComparison.positions, [right.x, right.y, right.z]);
-  if (!descriptor) { circleMesh.visible = false; return; }
-  circleMesh.visible = true;
-  circleMesh.position.set(...descriptor.center);
-  circleMesh.scale.set(descriptor.radius, descriptor.radius, 1);
-  const horizontal = new THREE.Vector3(descriptor.horizontal[0], descriptor.horizontal[1], 0);
-  const vertical = new THREE.Vector3(0, 0, 1);
-  const normal = new THREE.Vector3().crossVectors(horizontal, vertical).normalize();
-  circleMesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(horizontal, vertical, normal));
-}
-
 function renderComparison() {
   clearGroup(comparisonGroup);
-  state.currentComparison = null;
+  comparisonGroup.visible = Boolean(document.querySelector('[data-layer="comparison"]')?.checked);
   const userA = $('compareUserA').value;
   const userB = $('compareUserB').value;
   const productKey = state.selectedProduct || (new Set(state.filtered.map(point => point.product_key)).size === 1 ? state.filtered[0]?.product_key : null);
@@ -514,25 +429,25 @@ function renderComparison() {
     $('comparison').textContent = `至少一侧没有有效人民币折算价，无法比对；已排除 ${excluded} 个缺价点。`;
     return;
   }
-  const pairData = buildComparisonPairs(pricedA, pricedB, 1000);
-  const colors = {red: 0xe46755, yellow: 0xeaae35, green: 0x72b5aa};
-  const linePositions = [];
-  pairData.pairs.forEach(pair => linePositions.push(...comparisonPosition(pair.a), ...comparisonPosition(pair.b)));
-  if (linePositions.length) {
+  const descriptor = buildComparisonGeometry([...pricedA, ...pricedB], comparisonPosition);
+  const color = {red: 0xe46755, yellow: 0xeaae35, green: 0x72b5aa}[result.conclusion];
+  for (const cluster of descriptor.clusters) {
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 32, 20),
+      new THREE.MeshBasicMaterial({color, transparent: true, opacity: 0.13, side: THREE.DoubleSide, depthWrite: false}),
+    );
+    mesh.position.set(...cluster.center);
+    mesh.scale.set(...cluster.radii);
+    mesh.renderOrder = 2;
+    comparisonGroup.add(mesh);
+  }
+  if (descriptor.lines.length) {
+    const positions = descriptor.lines.flatMap(line => [...line.from, ...line.to]);
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
-    const material = new THREE.LineBasicMaterial({color: colors[result.conclusion], transparent: true, opacity: 0.42, depthWrite: false});
-    const lines = new THREE.LineSegments(geometry, material);
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({color, transparent: true, opacity: 0.72, depthWrite: false}));
     lines.renderOrder = 3;
     comparisonGroup.add(lines);
-    const circle = new THREE.Mesh(
-      new THREE.CircleGeometry(1, 64),
-      new THREE.MeshBasicMaterial({color: colors[result.conclusion], transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false}),
-    );
-    circle.renderOrder = 2;
-    circle.userData.type = 'comparison-circle';
-    comparisonGroup.add(circle);
-    state.currentComparison = {positions: [...pricedA, ...pricedB].map(comparisonPosition)};
   }
   const all = [...pricedA, ...pricedB];
   const values = all.map(point => point.normalized_price_cents);
@@ -546,9 +461,7 @@ function renderComparison() {
   }).join(' ');
   const percent = Number.isFinite(result.diffPct) ? `${result.diffPct.toFixed(2)}%` : '∞';
   const conclusion = {red: '严重疑似', yellow: '关注／低置信', green: '未见明显差异'}[result.conclusion];
-  const truncation = pairData.truncated ? `<div>候选连线 ${pairData.candidateCount} 条，仅绘制前 ${pairData.pairs.length} 条；统计仍使用全部有效样本。</div>` : '';
-  $('comparison').innerHTML = `<div class="stat-card" style="border-left:3px solid #${colors[result.conclusion].toString(16)}"><strong style="color:#${colors[result.conclusion].toString(16)}">${conclusion}</strong>　均价差 ${esc(formatPrice(result.diff * 100))}（${percent}）<br><small>${esc(result.reason)}</small></div><svg viewBox="0 0 300 125" width="100%" height="125" role="img" aria-label="双用户价格序列"><line x1="10" y1="105" x2="290" y2="105" stroke="#34506e"/><polyline points="${polyline(pricedA)}" fill="none" stroke="${userColor(userA)}" stroke-width="2"/><polyline points="${polyline(pricedB)}" fill="none" stroke="${userColor(userB)}" stroke-width="2"/></svg><div><span style="color:${userColor(userA)}">● ${esc(userA)}</span> ${result.low.name === userA ? result.low.n : result.high.n} 个有效点　<span style="color:${userColor(userB)}">● ${esc(userB)}</span> ${result.low.name === userB ? result.low.n : result.high.n} 个有效点</div><div>当前筛选、同一商品、各自 UTC 时间序列；仅使用人民币折算价。排除 ${excluded} 个缺价点；连线与包围圆 ${pairData.pairs.length} 组。</div>${truncation}<div>共享口径：关注 ≥5 元且 ≥5%；严重 ≥10 元且 >20%，两侧各 ≥3。</div>`;
-  updateComparisonVisuals();
+  $('comparison').innerHTML = `<div class="stat-card" style="border-left:3px solid #${color.toString(16)}"><strong style="color:#${color.toString(16)}">${conclusion}</strong>　均价差 ${esc(formatPrice(result.diff * 100))}（${percent}）<br><small>${esc(result.reason)}</small></div><svg viewBox="0 0 300 125" width="100%" height="125" role="img" aria-label="双用户价格序列"><line x1="10" y1="105" x2="290" y2="105" stroke="#34506e"/><polyline points="${polyline(pricedA)}" fill="none" stroke="${userColor(userA)}" stroke-width="2"/><polyline points="${polyline(pricedB)}" fill="none" stroke="${userColor(userB)}" stroke-width="2"/></svg><div><span style="color:${userColor(userA)}">● ${esc(userA)}</span> ${result.low.name === userA ? result.low.n : result.high.n} 个有效点　<span style="color:${userColor(userB)}">● ${esc(userB)}</span> ${result.low.name === userB ? result.low.n : result.high.n} 个有效点</div><div>当前筛选、同一商品、各自 UTC 时间序列；仅使用人民币折算价。排除 ${excluded} 个缺价点；按 24 小时间隔生成 ${descriptor.clusters.length} 个包围椭球和 ${descriptor.lines.length} 条相邻时间簇连线。</div><div>共享口径：关注 ≥5 元且 ≥5%；严重 ≥10 元且 >20%，两侧各 ≥3。</div>`;
 }
 
 function populateControls() {
@@ -724,7 +637,7 @@ document.addEventListener('visibilitychange', () => {
   $(id).addEventListener(id === 'searchInput' || id === 'userFilter' || id === 'cityFilter' ? 'input' : 'change', applyFilters);
 });
 ['startTime','endTime'].forEach(id => $(id).addEventListener('change', applyFilters));
-document.querySelectorAll('[data-relation]').forEach(input => input.addEventListener('change', applyFilters));
+document.querySelectorAll('[data-layer]').forEach(input => input.addEventListener('change', applyFilters));
 document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => switchView(button.dataset.view)));
 ['compareUserA','compareUserB'].forEach(id => $(id).addEventListener('change', applyFilters));
 $('playPosition').addEventListener('input', () => { updatePlayLabel(); applyFilters(); });

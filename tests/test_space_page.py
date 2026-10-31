@@ -58,15 +58,28 @@ class SpacePageTest(unittest.TestCase):
         for token in (
             "THREE.Points", "THREE.BufferGeometry", "THREE.LineSegments",
             "THREE.Raycaster", "OrbitControls", "normalized_price_cents",
-            "PRICE_GAP", "toCSV", "play", "window.innerWidth",
+            "toCSV", "play", "window.innerWidth",
             "buildSemanticLayout", "userColor", "movementVector", "keydown",
-            "CylinderGeometry", "categoryOpacity", "comparisonCircleGeometry", "SpriteMaterial", "frameCamera",
+            "CylinderGeometry", "categoryOpacity", "buildComparisonGeometry", "SphereGeometry", "frameCamera",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, source)
-        for removed in ("businessCoordinates", "featureProjection", "AxesHelper", "coordinateMode", "colorDimension"):
+        for removed in (
+            "businessCoordinates", "featureProjection", "AxesHelper", "coordinateMode", "colorDimension",
+            "comparisonCircleGeometry", "SpriteMaterial", "categoryLabel", "relationGroup", "renderRelations",
+        ):
             self.assertNotIn(removed, source)
         subprocess.run([NODE, "--check", str(API_DIR / "app" / "static" / "js" / "space.js")], check=True)
+
+    def test_spatial_layers_replace_legacy_relation_controls(self):
+        page = self.client.get("/space").text
+        self.assertIn('data-layer="categories"', page)
+        self.assertIn('data-layer="comparison"', page)
+        self.assertIn("分类圆柱", page)
+        self.assertIn("对比分析", page)
+        self.assertNotIn("data-relation=", page)
+        for relation in ("SAME_PRODUCT", "SAME_USER", "SAME_USER_PRODUCT", "TIME_NEIGHBOR", "PRICE_GAP", "PROMO_DIFFERENCE", "ACTIVE_COMPARISON"):
+            self.assertNotIn(f'data-relation="{relation}"', page)
 
     def test_pure_filter_and_csv_behavior(self):
         core = (API_DIR / "app" / "static" / "js" / "space-core.js").read_bytes()
