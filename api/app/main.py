@@ -237,6 +237,12 @@ def space_page():
     return FileResponse(STATIC_DIR / "space.html")
 
 
+@app.get("/user-space", include_in_schema=False)
+def user_space_page():
+    """用户分簇三维观测空间（复用控制台管理员会话）。"""
+    return FileResponse(STATIC_DIR / "user-space.html")
+
+
 @app.get("/overview", include_in_schema=False)
 def overview_page():
     """数据池总览看板（用户侧，X-User-Id）：全池数据量与歧视分析情况。"""
