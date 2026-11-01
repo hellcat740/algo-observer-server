@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>设置 · 算法歧视众包观测</title>
+<style>
+  body { max-width:680px; margin:24px auto; padding:0 16px 48px; background:#f8fafc; color:#1f2937;
+         font:14px/1.7 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+  h1 { font-size:20px; margin-bottom:4px; }
+  .sub { color:#6b7280; font-size:13px; margin-bottom:20px; }
+  section { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:16px 20px; margin-bottom:16px; }
+  h2 { font-size:15px; margin-bottom:10px; }
+  label.row { display:flex; align-items:center; gap:8px; margin:8px 0; cursor:pointer; }
+  input[type=text], input[type=password] { width:100%; padding:7px 10px; border:1px solid #d1d5db; border-radius:8px; font-size:13px; margin-top:4px; }
+  .field { margin-bottom:12px; }
+  .field .name { font-size:13px; color:#374151; }
+  button { border:none; border-radius:8px; padding:8px 18px; font-size:13px; cursor:pointer; }
+  #btn-save { background:#4f46e5; color:#fff; }
+  #btn-clear { background:#fee2e2; color:#991b1b; }
+  #saved-hint { color:#166534; font-size:12px; margin-left:10px; }
+  ul { padding-left:18px; font-size:13px; }
+  li { margin:4px 0; }
+  #history-list { font-size:12px; color:#4b5563; }
+  #history-list .row { padding:3px 0; border-bottom:1px dashed #f3f4f6; }
+  .muted { color:#9ca3af; font-size:12px; }
+</style>
+  <script type="module" crossorigin src="../options/options.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/modulepreload-polyfill-DaKOjhqt.js">
+  <link rel="modulepreload" crossorigin href="../assets/utils-CUEHBwO0.js">
+</head>
+<body>
+  <h1>⚙️ 设置</h1>
+  <div class="sub">算法歧视众包观测 · 数据采集插件</div>
+
+  <section>
+    <h2>数据用途说明</h2>
+    <ul>
+      <li>本插件采集的是您浏览商品页时<b>页面公开展示</b>的商品名、价格、优惠券、发货地，以及脱敏后的登录/会员状态、设备与网络环境概况。</li>
+      <li>数据用于公益性质的「大数据杀熟」研究与诉讼证据统计：把不同用户群体（新/老用户、不同设备档次、不同城市）的到手价做对照分析，用 <b>Mann-Whitney U 检验</b>等统计方法判断价格差异是否显著。</li>
+      <li>我们<b>绝不采集</b>：账号密码、cookie 值（仅判断登录态键名是否存在）、订单与支付信息、浏览历史。</li>
+      <li>所有记录同时保留在您的浏览器本地，您可随时清空；是否上报由您控制。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>授权</h2>
+    <label class="row"><input type="checkbox" id="ck-consent" /> 我了解上述说明，同意参与数据采集</label>
+    <div class="muted">未开启时插件不会采集或上报任何数据。勾选后即时生效。</div>
+    <label class="row"><input type="checkbox" id="ck-auto-collect" /> 商品页自动采集（进入商品详情页时自动抓取并上报）</label>
+    <div class="muted">需先开启上方授权才会生效。自动采集同样在本地脱敏（白名单过滤 + 店铺名/昵称打码）后上报；同一商品 10 分钟内不重复自动采集（手动采集不受限）；自动触发时无用户手势，截图可能失败并降级为无截图记录。该开关与弹窗内的开关实时同步。</div>
+  </section>
+
+  <section>
+    <h2>上报配置</h2>
+    <div class="field">
+      <div class="name">API 端点</div>
+      <input type="text" id="inp-endpoint" placeholder="http://127.0.0.1:8000/api/observations" />
+    </div>
+    <div class="field">
+      <div class="name">API Key（X-API-Key 请求头）</div>
+      <input type="password" id="inp-apikey" placeholder="dev-key-123" />
+    </div>
+    <div class="muted">本地后端默认 http://官方服务器 https://algodiscriminatingcheck.cn（密钥已内置，无需修改）。如需自建后端，填入自己的地址与密钥即可。控制台入口在弹窗内（📊 打开控制台）。</div>
+  </section>
+
+  <section>
+    <h2>脱敏选项</h2>
+    <label class="row"><input type="checkbox" id="ck-mask-shop" /> 隐藏店铺名（如「张*」）</label>
+    <label class="row"><input type="checkbox" id="ck-mask-user" /> 隐藏我的昵称/会员标识</label>
+  </section>
+
+  <section>
+    <button id="btn-save">保存设置</button><span id="saved-hint"></span>
+  </section>
+
+  <section>
+    <h2>历史记录</h2>
+    <div id="history-count" class="muted">读取中…</div>
+    <div id="history-list"></div>
+    <br />
+    <button id="btn-clear">清空全部历史记录</button>
+  </section>
+
+
+</body>
+</html>

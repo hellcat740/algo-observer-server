@@ -10,6 +10,15 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class SelectedOption(BaseModel):
+    """页面当前选中的一组商品规格。"""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(min_length=1, max_length=200)
+    value: str = Field(min_length=1, max_length=200)
+
+
 class ObservationIn(BaseModel):
     """插件上报的一条观测数据（扁平结构；嵌套结构的字段映射见 README）。"""
 
@@ -25,6 +34,8 @@ class ObservationIn(BaseModel):
     platform_code: str
     source_type: str = "extension"
     product_id: str
+    sku_id: Optional[str] = None
+    selected_options: Optional[list[SelectedOption]] = Field(default=None, max_length=20)
     product_name: str
     seller_id: Optional[str] = None
     product_url: str
@@ -75,6 +86,8 @@ class ObservationOut(BaseModel):
     platform_code: str
     source_type: str
     product_id: str
+    sku_id: Optional[str] = None
+    selected_options: Optional[list[SelectedOption]] = Field(default=None, max_length=20)
     product_name: str
     seller_id: Optional[str]
     product_url: str

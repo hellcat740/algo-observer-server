@@ -45,8 +45,8 @@ class PluginPackageTest(unittest.TestCase):
     def test_zip_complete(self):
         self.assertTrue(REQUIRED_FILES.issubset(set(self.zf.namelist())))
 
-    def test_version_is_1_1_0(self):
-        self.assertEqual(self.manifest["version"], "1.1.0")
+    def test_version_is_1_2_0(self):
+        self.assertEqual(self.manifest["version"], "1.2.0")
 
     def test_download_page_displays_package_version(self):
         download = (ZIP_PATH.parent / "download.html").read_text(encoding="utf-8")

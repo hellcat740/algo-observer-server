@@ -18,6 +18,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     UniqueConstraint,
 )
@@ -55,6 +56,8 @@ class Observation(Base):
     platform_code = Column(String(50), nullable=False, comment="平台编码，白名单校验")
     source_type = Column(String(50), nullable=False, default="extension")
     product_id = Column(String(200), nullable=False, comment="商品 ID，高频检索字段")
+    sku_id = Column(String(200), nullable=True, comment="当前 SKU／变体标识")
+    selected_options = Column(JSON, nullable=True, comment="当前已选规格 [{name,value}]")
     product_name = Column(String(300), nullable=False)
     seller_id = Column(String(200), nullable=True)
     product_url = Column(String(1000), nullable=False)

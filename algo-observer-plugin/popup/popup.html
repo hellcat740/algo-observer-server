@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>算法歧视众包观测</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { width:340px; padding:14px 16px; background:#f8fafc; color:#1f2937;
+         font:13px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+  h1 { font-size:15px; font-weight:600; margin-bottom:10px; }
+  .badge { font-size:11px; padding:1px 8px; border-radius:999px; }
+  .badge.ok { background:#dcfce7; color:#166534; }
+  .badge.no { background:#fee2e2; color:#991b1b; }
+  .card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; margin-bottom:10px; }
+  .card .label { color:#6b7280; font-size:12px; margin-bottom:2px; }
+  #consent-panel p { font-size:12px; color:#4b5563; margin-bottom:8px; }
+  button { width:100%; border:none; border-radius:8px; padding:9px 0; font-size:14px; cursor:pointer; }
+  #btn-collect { background:#4f46e5; color:#fff; font-weight:600; }
+  #btn-collect:disabled { background:#a5b4fc; cursor:default; }
+  #btn-consent { background:#0ea5e9; color:#fff; margin-top:6px; }
+  #btn-test-conn { background:#fff; border:1px solid #d1d5db; color:#374151; padding:6px 0; font-size:12px; margin-top:6px; }
+  #btn-test-conn:disabled { color:#9ca3af; cursor:default; }
+  #btn-retry { background:#fff; border:1px solid #d1d5db; color:#374151; padding:6px 0; font-size:12px; margin-top:6px; }
+  #btn-retry:disabled { color:#9ca3af; cursor:default; }
+  #retry-result { margin-top:6px; }
+  .muted { color:#9ca3af; font-size:11px; word-break:break-all; }
+  .switch-row { display:flex; align-items:center; gap:6px; font-size:13px; margin-top:8px; cursor:pointer; }
+  .switch-row.off { color:#9ca3af; cursor:default; }
+  #conn-result { font-size:12px; margin-top:6px; display:none; }
+  #link-console { color:#4f46e5; text-decoration:none; font-size:12px; cursor:pointer; }
+  #link-console:hover { text-decoration:underline; }
+  #collect-result { font-size:12px; margin-top:8px; display:none; }
+  footer { display:flex; justify-content:space-between; margin-top:10px; }
+  footer a { color:#4f46e5; text-decoration:none; font-size:12px; cursor:pointer; }
+  footer a:hover { text-decoration:underline; }
+</style>
+  <script type="module" crossorigin src="../popup/popup.js"></script>
+  <link rel="modulepreload" crossorigin href="../assets/modulepreload-polyfill-DaKOjhqt.js">
+  <link rel="modulepreload" crossorigin href="../assets/utils-CUEHBwO0.js">
+</head>
+<body>
+  <h1>⚖️ 算法歧视众包观测</h1>
+
+  <div class="card">
+    <div class="label">当前页面</div>
+    <div id="page-status">检测中…</div>
+  </div>
+
+  <div class="card">
+    <div class="label">授权状态</div>
+    <div id="consent-status"><span class="badge no">未授权</span></div>
+    <label class="switch-row off" id="auto-row">
+      <input type="checkbox" id="ck-auto" disabled /> 商品页自动采集
+    </label>
+    <div class="muted" id="auto-hint">进入商品详情页时自动抓取并上报</div>
+  </div>
+
+  <div class="card">
+    <div class="label">后端连接</div>
+    <div id="endpoint-display" class="muted">读取中…</div>
+    <button id="btn-test-conn">测试连接</button>
+    <div id="conn-result"></div>
+    <div style="margin-top:8px;">
+      <a id="link-console" target="_blank" rel="noopener">📊 打开本地控制台</a>
+      <div class="muted">查看数据库与歧视分析看板</div>
+    </div>
+    <div style="margin-top:8px;">
+      <a id="link-board" target="_blank" rel="noopener">🧾 打开我的看板</a>
+      <div class="muted">匿名身份 <span id="anon-short">读取中…</span>（<a id="link-copy-id" style="color:#4f46e5;cursor:pointer">复制完整 ID</a>）<br />看板按此身份展示你上报的数据，换浏览器/清数据后需用完整 ID 找回</div>
+    </div>
+    </div>
+  </div>
+
+  <div class="card" id="consent-panel" hidden>
+    <div class="label">授权说明</div>
+    <p>本插件用于公益性质的算法价格歧视研究。点击「同意并参与」后，您在受支持电商平台的商品详情页可一键采集：<b>页面公开的商品名、价格、优惠、发货地</b>，以及脱敏后的登录/会员状态、设备与网络环境概况。<br />我们<b>绝不采集</b>账号密码、cookie 值、订单与支付信息。数据仅用于群体价格差异的统计检验（如 Mann-Whitney U 检验）。</p>
+    <button id="btn-consent">同意并参与</button>
+  </div>
+
+  <button id="btn-collect">采集本页数据</button>
+  <div id="collect-result"></div>
+
+  <div class="card" id="last-card" hidden>
+    <div class="label">最近一次采集</div>
+    <div id="last-result"></div>
+  </div>
+
+  <div class="card" id="retry-card" hidden>
+    <div class="label">待重试的失败记录：<span id="retry-count">0</span> 条</div>
+    <button id="btn-retry">重试上报</button>
+    <div id="retry-result" class="muted"></div>
+  </div>
+
+  <footer>
+    <a id="link-report">📊 数据报告</a>
+    <a id="link-options">⚙️ 设置</a>
+  </footer>
+
+</body>
+</html>

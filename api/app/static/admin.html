@@ -326,7 +326,8 @@ async function showDetail(id) {
     const o = await api('/api/observations/' + id);
     const labels = {
       observation_id: '观测 ID', task_id: '任务 ID', platform_code: '平台',
-      source_type: '来源类型', product_id: '商品 ID', product_name: '商品名',
+      source_type: '来源类型', product_id: '商品 ID', sku_id: 'SKU ID',
+      selected_options: '已选规格', product_name: '商品名',
       seller_id: '卖家 ID', product_url: '商品链接',
       display_price_cents: '标价', actual_pay_price_cents: '到手价',
       currency: '币种', discount_coupon_amount_cents: '优惠券金额',
@@ -344,6 +345,7 @@ async function showDetail(id) {
     $('detailKv').innerHTML = Object.keys(labels).map(k => {
       let v = o[k];
       if (priceFields.includes(k) && v != null) v = fen2yuan(v, o.currency) + `（${v} 分）`;
+      if (k === 'selected_options' && Array.isArray(v)) v = v.map(option => `${option.name}：${option.value}`).join('；');
       if (v == null) v = '<span class="muted">—</span>';
       else if (typeof v === 'boolean') v = v ? '是' : '否';
       else v = esc(String(v));

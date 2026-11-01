@@ -121,6 +121,10 @@ def _migrate_lightweight():
             conn.execute(text(
                 "ALTER TABLE observations ADD COLUMN synced_at TIMESTAMP WITH TIME ZONE"
             ))
+        if "sku_id" not in cols:
+            conn.execute(text("ALTER TABLE observations ADD COLUMN sku_id VARCHAR(200)"))
+        if "selected_options" not in cols:
+            conn.execute(text("ALTER TABLE observations ADD COLUMN selected_options JSON"))
 
 
 # ---------- 公共接口（不鉴权） ----------

@@ -1,0 +1,78 @@
+{
+  "manifest_version": 3,
+  "name": "算法歧视众包观测",
+  "version": "1.2.0",
+  "description": "公益诉讼用途的算法定价歧视众包数据采集插件：在你浏览商品页时，记录公开价格、优惠与脱敏后的浏览环境，用于价格差异的统计检验。",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://*.taobao.com/*",
+    "*://*.tmall.com/*",
+    "*://*.jd.com/*",
+    "*://*.yangkeduo.com/*",
+    "*://*.amazon.com/*",
+    "https://ipapi.co/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "https://algodiscriminatingcheck.cn/*"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "background": {
+    "service_worker": "background/index.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.taobao.com/*",
+        "*://*.tmall.com/*",
+        "*://*.jd.com/*",
+        "*://*.yangkeduo.com/*",
+        "*://*.amazon.com/*"
+      ],
+      "js": [
+        "content/index.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://algodiscriminatingcheck.cn/me*"
+      ],
+      "js": [
+        "content/dashboard-sync.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "report/report.html"
+      ],
+      "matches": [
+        "*://*.taobao.com/*",
+        "*://*.tmall.com/*",
+        "*://*.jd.com/*",
+        "*://*.yangkeduo.com/*",
+        "*://*.amazon.com/*"
+      ]
+    }
+  ]
+}

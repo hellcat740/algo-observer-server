@@ -121,7 +121,7 @@ def clean_observation(data: ObservationIn) -> tuple[dict, list[str]]:
 
     # 5. 字符串长度：固定上限字段 + 默认 200 字段
     str_fields_default_limit = [
-        "source_type", "product_id", "seller_id", "promo_type", "promo_label",
+        "source_type", "product_id", "sku_id", "seller_id", "promo_type", "promo_label",
         "membership_level", "platform", "language", "screen_resolution",
         "ip_city", "shipping_city", "stock_hint", "screenshot_path",
         "dom_price_text", "dom_snapshot_path", "source_code_version", "anonymous_id",
@@ -136,6 +136,7 @@ def clean_observation(data: ObservationIn) -> tuple[dict, list[str]]:
     # 6. 汇总入库字段
     cleaned.update({
         "task_id": data.task_id,
+        "selected_options": raw.get("selected_options"),
         "platform_code": platform_code,
         "display_price_cents": display_cents,
         "actual_pay_price_cents": actual_cents,
