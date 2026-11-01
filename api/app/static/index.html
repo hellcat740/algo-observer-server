@@ -388,7 +388,7 @@
         <table class="list">
           <thead>
             <tr>
-              <th>采集时间(UTC)</th><th>平台</th><th>商品名</th><th>商品ID</th><th>类别</th>
+              <th>采集时间(UTC)</th><th>平台</th><th>商品名</th><th>商品ID</th><th>SKU</th><th>已选规格</th><th>类别</th>
               <th>标价</th><th>到手价</th><th>城市</th><th>登录态</th><th>新用户</th><th>用户</th><th>来源</th><th>操作</th>
             </tr>
           </thead>
@@ -626,7 +626,7 @@ const REASON_CN = {
 const OBS_LABELS = {
   observation_id: '观测 ID', task_id: '任务 ID', user_ref: '匿名用户', platform_code: '平台',
   source_type: '来源类型', origin: '数据来源', product_id: '商品 ID', product_name: '商品名',
-  seller_id: '卖家 ID', product_url: '商品链接',
+  sku_id: 'SKU ID', selected_options: '已选规格', seller_id: '卖家 ID', product_url: '商品链接',
   display_price_cents: '标价', actual_pay_price_cents: '到手价',
   currency: '币种', discount_coupon_amount_cents: '优惠券金额',
   promo_type: '促销类型', promo_label: '促销文案',
@@ -640,6 +640,11 @@ const OBS_LABELS = {
   dom_snapshot_path: 'DOM 快照路径', source_code_version: '采集代码版本',
 };
 const PRICE_FIELDS = ['display_price_cents', 'actual_pay_price_cents', 'discount_coupon_amount_cents'];
+
+function formatSelectedOptions(options) {
+  if (!Array.isArray(options) || !options.length) return '—';
+  return options.map(option => `${option.name || '规格'}：${option.value || '—'}`).join('；');
+}
 
 function saveKey() {
   apiKey = $('apiKeyInput').value.trim();
@@ -1112,6 +1117,8 @@ async function obsLoad() {
           <td><span class="chip">${esc(o.platform_code)}</span></td>
           <td class="ellipsis" title="${esc(o.product_name)}">${esc(o.product_name)}</td>
           <td class="ellipsis muted">${esc(o.product_id)}</td>
+          <td class="ellipsis muted">${esc(o.sku_id || '—')}</td>
+          <td class="ellipsis" title="${esc(formatSelectedOptions(o.selected_options))}">${esc(formatSelectedOptions(o.selected_options))}</td>
           <td class="ellipsis" id="obs-category-${o.observation_id}">未分类</td>
           <td>${fen(o.display_price_cents, o.currency)}</td>
           <td>${o.actual_pay_price_cents == null ? '—' : fen(o.actual_pay_price_cents, o.currency)}</td>
@@ -1312,6 +1319,7 @@ async function obsShowDetail(id) {
       let v = o[k];
       if (PRICE_FIELDS.includes(k) && v != null) v = fen(v, o.currency) + `（${v} 分）`;
       if (k === 'origin' && v != null) v = v === 'local' ? '本机（local）' : v === 'pulled' ? '服务器拉取（pulled）' : v;
+      if (k === 'selected_options') v = formatSelectedOptions(v);
       if (v == null) v = '<span class="muted">—</span>';
       else if (typeof v === 'boolean') v = v ? '是' : '否';
       else v = esc(String(v));

@@ -184,7 +184,7 @@
     <table>
       <thead>
         <tr>
-          <th>采集时间(UTC)</th><th>平台</th><th>商品名</th><th>商品ID</th>
+          <th>采集时间(UTC)</th><th>平台</th><th>商品名</th><th>商品ID</th><th>SKU</th><th>已选规格</th>
           <th>标价</th><th>到手价</th><th>城市</th><th>登录态</th><th>新用户</th><th>操作</th>
         </tr>
       </thead>
@@ -271,6 +271,11 @@ async function loadStats() {
 }
 
 // ---------- 列表 ----------
+function formatSelectedOptions(options) {
+  if (!Array.isArray(options) || !options.length) return '—';
+  return options.map(option => `${option.name || '规格'}：${option.value || '—'}`).join('；');
+}
+
 function buildQuery() {
   const p = new URLSearchParams({ page, page_size: pageSize });
   const pid = $('fProductId').value.trim();
@@ -305,6 +310,8 @@ async function loadList() {
           <td><span class="chip">${esc(o.platform_code)}</span></td>
           <td class="ellipsis" title="${esc(o.product_name)}">${esc(o.product_name)}</td>
           <td class="ellipsis muted">${esc(o.product_id)}</td>
+          <td class="ellipsis muted">${esc(o.sku_id || '—')}</td>
+          <td class="ellipsis" title="${esc(formatSelectedOptions(o.selected_options))}">${esc(formatSelectedOptions(o.selected_options))}</td>
           <td>${fen2yuan(o.display_price_cents, o.currency)}</td>
           <td>${o.actual_pay_price_cents == null ? '—' : fen2yuan(o.actual_pay_price_cents, o.currency)}</td>
           <td>${esc(o.ip_city || '—')}</td>
@@ -345,7 +352,7 @@ async function showDetail(id) {
     $('detailKv').innerHTML = Object.keys(labels).map(k => {
       let v = o[k];
       if (priceFields.includes(k) && v != null) v = fen2yuan(v, o.currency) + `（${v} 分）`;
-      if (k === 'selected_options' && Array.isArray(v)) v = v.map(option => `${option.name}：${option.value}`).join('；');
+      if (k === 'selected_options') v = formatSelectedOptions(v);
       if (v == null) v = '<span class="muted">—</span>';
       else if (typeof v === 'boolean') v = v ? '是' : '否';
       else v = esc(String(v));

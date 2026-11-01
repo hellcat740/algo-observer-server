@@ -35,7 +35,7 @@ class ObservationDetailsTest(unittest.TestCase):
         self.assertIn("function esc(s)", self.text)
         self.assertIn("url.protocol !== 'http:' && url.protocol !== 'https:'", self.text)
         self.assertIn("function fmtBool(value)", self.text)
-        self.assertIn("colspan=\"5\"", self.text)
+        self.assertIn("colspan=\"7\"", self.text)
 
 
 if __name__ == "__main__":
