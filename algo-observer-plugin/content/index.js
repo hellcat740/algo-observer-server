@@ -403,23 +403,23 @@
   const OPTION_RULES = {
     taobao: {
       groups: ['[class*="skuItem--"]', ".J_Prop"],
-      labels: ['[class*="label--"]', ".tb-property-type"],
+      labels: ['[class*="ItemLabel--"]', '[class*="label--"]', ".tb-property-type"],
       selected: ['[class*="isSelected--"]', ".selected"]
     },
     tmall: {
       groups: ['[class*="skuItem--"]', ".J_Prop"],
-      labels: ['[class*="label--"]', ".tb-property-type"],
+      labels: ['[class*="ItemLabel--"]', '[class*="label--"]', ".tb-property-type"],
       selected: ['[class*="isSelected--"]', ".selected"]
     },
     jd: {
-      groups: ["#choose-attrs .sku-choose", ".sku-choose", '[class*="skuItem--"]'],
-      labels: [".dt", '[class*="label--"]'],
-      selected: [".selected", '[class*="isSelected--"]']
+      groups: ["#choose-attrs .sku-choose", ".sku-choose", ".specification-group", '[class*="skuItem--"]'],
+      labels: [".dt", ".specification-group-label", '[class*="label--"]'],
+      selected: [".selected", ".specification-item-sku--selected", '[class*="isSelected--"]']
     },
     amazon: {
-      groups: ["#twister_feature_div", '#twister [id^="variation_"]', '#twister [id$="_name"]'],
-      labels: [".a-form-label", ".a-row .a-size-base"],
-      selected: [".a-button-selected", ".a-selected", "li.selected", '[aria-checked="true"]', "select option:checked"]
+      groups: ['[id^="inline-twister-row-"]', '#twister [id^="variation_"]', '#twister [id$="_name"]', "#twister_feature_div"],
+      labels: ['[id^="inline-twister-dim-title-"] .a-color-secondary', ".a-form-label", ".a-row .a-size-base"],
+      selected: ['[id^="inline-twister-expanded-dimension-text-"]', ".a-button-selected", ".a-selected", "li.selected", '[aria-checked="true"]', "select option:checked"]
     }
   };
   function cleanOptionText(value) {

@@ -53,13 +53,13 @@ BASE = {
     "taobao": {
         "hostname":"item.taobao.com", "url":"https://item.taobao.com/item.htm?id=906092642193&skuId=5827913353815",
         "nodes":{".tb-main-title":{"text":"测试商品"},'[class*="highlightPrice--"]':{"text":"￥80"}},
-        "group":'[class*="skuItem--"]', "label":'[class*="label--"]', "selected":'[class*="isSelected--"]',
+        "group":'[class*="skuItem--"]', "label":'[class*="ItemLabel--"]', "selected":'[class*="isSelected--"]',
         "options":[{"name":"颜色","value":"黑色"},{"name":"尺码","value":"L"}],
     },
     "tmall": {
         "hostname":"detail.tmall.com", "url":"https://detail.tmall.com/item.htm?id=1075070258152&skuId=6291578435222",
         "nodes":{".tb-detail-hd h1":{"text":"测试商品"},'[class*="highlightPrice--"]':{"text":"￥282"}},
-        "group":'[class*="skuItem--"]', "label":'[class*="label--"]', "selected":'[class*="isSelected--"]',
+        "group":'[class*="skuItem--"]', "label":'[class*="ItemLabel--"]', "selected":'[class*="isSelected--"]',
         "options":[{"name":"颜色分类","value":"Ryzen 3 3200G散片"}],
     },
     "jd": {
@@ -117,6 +117,33 @@ class SelectedOptionsTest(unittest.TestCase):
                 response = self.run_extract(self.fixture_for(platform, with_options=False))
                 self.assertTrue(response["ok"], response.get("error"))
                 self.assertEqual(response["data"]["selectedOptions"], [])
+
+    def test_jd_current_specification_group(self):
+        fixture = self.fixture_for("jd", with_options=False)
+        fixture["all"] = {".specification-group": [{
+            "one":{".specification-group-label":{"text":"颜色"}},
+            "all":{".specification-item-sku--selected":[{"text":"25T标准舵盘"}]},
+        }]}
+        response = self.run_extract(fixture)
+        self.assertEqual(response["data"]["selectedOptions"], [{"name":"颜色","value":"25T标准舵盘"}])
+
+    def test_amazon_current_inline_twister(self):
+        fixture = self.fixture_for("amazon", with_options=False)
+        fixture["all"] = {'[id^="inline-twister-row-"]': [
+            {
+                "one":{'[id^="inline-twister-dim-title-"] .a-color-secondary':{"text":"Color:"}},
+                "all":{'[id^="inline-twister-expanded-dimension-text-"]':[{"text":"Black/Grey/Blue Assorted - 6 Pack"}]},
+            },
+            {
+                "one":{'[id^="inline-twister-dim-title-"] .a-color-secondary':{"text":"Size:"}},
+                "all":{'[id^="inline-twister-expanded-dimension-text-"]':[{"text":"Medium"}]},
+            },
+        ]}
+        response = self.run_extract(fixture)
+        self.assertEqual(response["data"]["selectedOptions"], [
+            {"name":"Color","value":"Black/Grey/Blue Assorted - 6 Pack"},
+            {"name":"Size","value":"Medium"},
+        ])
 
     def test_background_preserves_fields_and_variant_dedup_key(self):
         source = (ROOT / "algo-observer-plugin" / "background" / "index.js").read_text(encoding="utf-8")
