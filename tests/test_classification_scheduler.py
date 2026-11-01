@@ -91,6 +91,38 @@ class ClassificationSchedulerTest(unittest.TestCase):
         self.assertEqual(len(worker.call_args.args[0]), 1)
         self.assertEqual(worker.call_args.kwargs["session_factory"], self.Session)
 
+    def test_idle_check_explicitly_uses_deepseek(self):
+        self.add_products(1)
+        worker = Mock()
+        with patch.dict(os.environ, {
+            "CLASSIFICATION_PROVIDER": "qwen",
+            "DEEPSEEK_API_KEY": "deep",
+            "QWEN_API_KEY": "qwen",
+        }, clear=True):
+            run_idle_check(session_factory=self.Session, worker=worker)
+        self.assertEqual(worker.call_args.kwargs["provider"], "deepseek")
+
+    def test_upload_check_uses_qwen_even_when_manual_provider_is_deepseek(self):
+        from app.classification_scheduler import schedule_upload_classification
+
+        background_tasks = Mock()
+        products = [SimpleNamespace(product_id="new-product")]
+        with patch.dict(os.environ, {
+            "CLASSIFICATION_PROVIDER": "deepseek",
+            "DEEPSEEK_API_KEY": "deep",
+            "QWEN_API_KEY": "qwen",
+        }, clear=True), patch("app.space_api.run_classification_worker") as worker:
+            self.assertTrue(schedule_upload_classification(background_tasks, products))
+        background_tasks.add_task.assert_called_once_with(worker, products, provider="qwen")
+
+    def test_upload_check_waits_for_idle_when_qwen_is_not_configured(self):
+        from app.classification_scheduler import schedule_upload_classification
+
+        background_tasks = Mock()
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "deep"}, clear=True):
+            self.assertFalse(schedule_upload_classification(background_tasks, [SimpleNamespace()]))
+        background_tasks.add_task.assert_not_called()
+
     def test_scheduler_is_disabled_on_vercel_and_idempotent_elsewhere(self):
         start_classification_scheduler.started = False
         with patch.dict(os.environ, {"VERCEL": "1"}, clear=True):

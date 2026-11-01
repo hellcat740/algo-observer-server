@@ -9,6 +9,8 @@ class ClassificationDeploymentDocsTest(unittest.TestCase):
     def test_env_example_has_both_provider_templates_without_real_keys(self):
         text = (ROOT / ".env.example").read_text(encoding="utf-8")
         for expected in (
+            "UPLOAD_CLASSIFICATION_PROVIDER=qwen",
+            "IDLE_CLASSIFICATION_PROVIDER=deepseek",
             "CLASSIFICATION_PROVIDER=deepseek",
             "QWEN_API_KEY=replace-with-qwen-secret",
             "QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1",

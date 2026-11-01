@@ -59,12 +59,13 @@ def deduplicate_products(observations: list[Any]) -> list[Any]:
     return list(products.values())
 
 
-def _model_name() -> str:
-    return provider_settings().model
+def _model_name(provider: str | None = None) -> str:
+    return provider_settings(provider).model
 
 
-def classification_request(product: Any) -> dict[str, Any]:
+def classification_request(product: Any, provider: str | None = None) -> dict[str, Any]:
     """构造只允许四个商品字段进入用户消息的 OpenAI 兼容请求。"""
+    settings = provider_settings(provider)
     product_input = {
         "product_name": product.product_name,
         "seller_id": product.seller_id or "",
@@ -84,7 +85,7 @@ def classification_request(product: Any) -> dict[str, Any]:
         + json.dumps(CATEGORY_TAXONOMY, ensure_ascii=False)
     )
     request = {
-        "model": _model_name(),
+        "model": settings.model,
         "temperature": 0,
         "response_format": {"type": "json_object"},
         "messages": [
@@ -96,18 +97,18 @@ def classification_request(product: Any) -> dict[str, Any]:
         ],
     }
     # qwen3.x 为思考模型，默认先推理再回答会超出分类超时；关闭思考保证 8 秒内返回。
-    if provider_settings().name == "qwen":
+    if settings.name == "qwen":
         request["chat_template_kwargs"] = {"enable_thinking": False}
     return request
 
 
-def _call_model(product: Any) -> dict[str, Any]:
-    settings = provider_settings()
+def _call_model(product: Any, provider: str | None = None) -> dict[str, Any]:
+    settings = provider_settings(provider)
     if not settings.api_key:
         raise ClassificationError("未配置所选商品分类服务的 API Key")
     request = Request(
         settings.base_url.rstrip("/") + "/chat/completions",
-        data=json.dumps(classification_request(product), ensure_ascii=False).encode("utf-8"),
+        data=json.dumps(classification_request(product, provider=settings.name), ensure_ascii=False).encode("utf-8"),
         headers={
             "Authorization": "Bearer " + settings.api_key,
             "Content-Type": "application/json",
@@ -131,7 +132,12 @@ def _call_model(product: Any) -> dict[str, Any]:
         raise ClassificationError("商品分类请求或响应解析失败") from exc
 
 
-_call_deepseek = _call_model
+def _call_deepseek(product: Any) -> dict[str, Any]:
+    return _call_model(product, provider="deepseek")
+
+
+def _call_qwen(product: Any) -> dict[str, Any]:
+    return _call_model(product, provider="qwen")
 
 
 def _base_result(product: Any) -> dict[str, Any]:
@@ -160,7 +166,7 @@ def _fallback(product: Any) -> dict[str, Any]:
     }
 
 
-def _normalize(product: Any, data: Any) -> dict[str, Any]:
+def _normalize(product: Any, data: Any, provider: str | None = None) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ClassificationError("分类结果不是 JSON 对象")
     category_l1 = data.get("category_l1")
@@ -195,7 +201,7 @@ def _normalize(product: Any, data: Any) -> dict[str, Any]:
         "confidence": confidence,
         "evidence": evidence,
         "needs_human_review": bool(review or confidence < 0.75 or category_l1 == UNKNOWN_L1),
-        "model_name": _model_name(),
+        "model_name": _model_name(provider),
     }
 
 
@@ -242,6 +248,7 @@ def classify_products(
     db,
     observations: list[Any],
     caller: Callable[[Any], dict[str, Any]] | None = None,
+    provider: str | None = None,
 ) -> tuple[dict[str, dict], list[str]]:
     """去重后分类；缓存命中零模型调用，临时失败不落缓存。"""
     products = deduplicate_products(observations)
@@ -261,10 +268,13 @@ def classify_products(
             results[key] = result
             continue
         try:
-            if caller is None and not provider_is_configured():
-                raise ClassificationError("未配置所选商品分类服务的 API Key")
-            raw = (caller or _call_model)(product)
-            result = _normalize(product, raw)
+            if caller is None:
+                if not provider_is_configured(provider):
+                    raise ClassificationError("未配置所选商品分类服务的 API Key")
+                raw = _call_model(product, provider=provider)
+            else:
+                raw = caller(product)
+            result = _normalize(product, raw, provider=provider)
         except Exception:
             results[key] = _fallback(product)
             warnings.append(f"商品 {product.product_id} 分类不可用，已标记为需人工复核")

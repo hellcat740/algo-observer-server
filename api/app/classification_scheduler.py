@@ -5,7 +5,7 @@ import os
 import threading
 from zoneinfo import ZoneInfo
 
-from .classification_config import provider_is_configured
+from .classification_config import idle_provider_name, provider_is_configured, upload_provider_name
 from .database import SessionLocal
 from .models import Observation
 from .product_categories import cache_key, deduplicate_products, get_cached_classifications
@@ -44,6 +44,7 @@ def run_idle_check(session_factory=None, worker=None):
 
     session_factory = session_factory or SessionLocal
     worker = worker or run_classification_worker
+    provider = idle_provider_name()
     if get_classification_status()["status"] == "running":
         return get_classification_status()
     db = session_factory()
@@ -57,14 +58,26 @@ def run_idle_check(session_factory=None, worker=None):
             finished_at=None, message="没有待分类商品",
         )
         return get_classification_status()
-    if not provider_is_configured():
+    if not provider_is_configured(provider):
         _update_classification_status(
             status="not_configured", processed=0, total=len(products),
-            started_at=None, finished_at=None, message="未配置商品分类服务",
+            started_at=None, finished_at=None, message="未配置闲时 DeepSeek 分类服务",
         )
         return get_classification_status()
-    worker(products, session_factory=session_factory)
+    worker(products, session_factory=session_factory, provider=provider)
     return get_classification_status()
+
+
+def schedule_upload_classification(background_tasks, products):
+    """上报成功后异步分类；缺少上传模型配置时静默等待闲时任务。"""
+    from .space_api import run_classification_worker
+
+    products = list(products)
+    provider = upload_provider_name()
+    if not products or not provider_is_configured(provider):
+        return False
+    background_tasks.add_task(run_classification_worker, products, provider=provider)
+    return True
 
 
 def start_classification_scheduler():

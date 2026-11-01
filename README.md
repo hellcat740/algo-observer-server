@@ -36,7 +36,9 @@
 | --- | --- | --- |
 | `INGEST_API_KEY` | 插件上报密钥（公开，随插件分发），只放行 `POST /api/observations` | `api/app/auth.py` |
 | `ADMIN_KEY` | 管理员原始密钥（仅维护者持有，服务端只存 SHA-256 哈希） | `api/app/auth.py` |
-| `CLASSIFICATION_PROVIDER` | 商品分类提供商，可选 `deepseek` / `qwen` | `deepseek` |
+| `UPLOAD_CLASSIFICATION_PROVIDER` | 数据上传后自动分类提供商，可选 `deepseek` / `qwen` | `qwen` |
+| `IDLE_CLASSIFICATION_PROVIDER` | 每日闲时补全分类提供商，可选 `deepseek` / `qwen` | `deepseek` |
+| `CLASSIFICATION_PROVIDER` | 管理员工具/页面分类提供商，可选 `deepseek` / `qwen` | `deepseek` |
 | `DEEPSEEK_API_KEY` | DeepSeek 密钥，仅在服务端使用 | 无 |
 | `DEEPSEEK_BASE_URL` | DeepSeek OpenAI 兼容接口根地址 | `https://api.deepseek.com/v1` |
 | `DEEPSEEK_MODEL` | DeepSeek 商品分类模型 | `deepseek-flash` |
@@ -53,7 +55,8 @@
 
 - 管理入口为 `/visualization`，数据接口为 `GET /api/analysis/visualization-points`，复用管理员 `X-API-Key`。
 - 分类只使用商品名、卖家、商品链接和平台。结果按商品稳定键缓存在独立的 `product_category_cache` 表；商品改名会创建新的缓存条目，不修改任何观测字段。
-- 未配置模型密钥、模型请求失败或响应不合法时，商品降级为“其他／无法判断”并标记需人工复核，观测点仍可查看。临时失败不写缓存。
+- 插件单条上报和数据池批量上行成功后自动后台分类，默认使用 Qwen，不阻塞上报响应；每天 01:17（北京时间）默认使用 DeepSeek 补全最多 100 个未缓存商品。
+- 未配置模型密钥、模型请求失败或响应不合法时，商品降级为“其他／无法判断”并标记需人工复核，观测点仍可查看。临时失败不写缓存，由闲时任务重试。
 - 页面只将具有 `normalized_price_cents` 的点纳入人民币折算价散点图；其他币种与无汇率记录保留原币明细，不参与跨币种价格差计算。
 - 管理控制台观测列表展示缓存类别，可用“分类”按钮启动后台分类；每条记录支持编辑全部业务字段，固定格式字段使用下拉框，记录 ID 与同步元数据不可修改。
 

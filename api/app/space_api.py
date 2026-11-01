@@ -40,6 +40,7 @@ router = APIRouter(
 )
 
 _status_lock = threading.Lock()
+_classification_worker_lock = threading.Lock()
 _classification_state = {}
 _auto_classification_attempts = set()
 
@@ -72,7 +73,13 @@ def _update_classification_status(**values):
         _classification_state.update(values)
 
 
-def run_classification_worker(products, session_factory=None, classifier=None):
+def run_classification_worker(products, session_factory=None, classifier=None, provider=None):
+    """Serialize workers so concurrent uploads cannot duplicate cache writes."""
+    with _classification_worker_lock:
+        _run_classification_worker(products, session_factory, classifier, provider)
+
+
+def _run_classification_worker(products, session_factory=None, classifier=None, provider=None):
     """Classify detached products in bounded batches using a fresh DB session."""
     session_factory = session_factory or SessionLocal
     classifier = classifier or classify_products
@@ -86,7 +93,10 @@ def run_classification_worker(products, session_factory=None, classifier=None):
         warning_count = 0
         for start in range(0, len(products), 50):
             batch = products[start:start + 50]
-            _, warnings = classifier(db, batch)
+            if provider is None:
+                _, warnings = classifier(db, batch)
+            else:
+                _, warnings = classifier(db, batch, provider=provider)
             processed += len(batch)
             warning_count += len(warnings)
             _update_classification_status(processed=processed)

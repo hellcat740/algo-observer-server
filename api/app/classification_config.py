@@ -15,8 +15,8 @@ class ProviderSettings:
     model: str
 
 
-def provider_settings() -> ProviderSettings:
-    name = os.environ.get("CLASSIFICATION_PROVIDER", "deepseek").strip().lower()
+def provider_settings(provider: str | None = None) -> ProviderSettings:
+    name = (provider or os.environ.get("CLASSIFICATION_PROVIDER", "deepseek")).strip().lower()
     if name == "deepseek":
         return ProviderSettings(
             name=name,
@@ -31,11 +31,19 @@ def provider_settings() -> ProviderSettings:
             base_url=os.environ.get("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
             model=os.environ.get("QWEN_MODEL", "qwen3.7-flash"),
         )
-    raise ClassificationError("CLASSIFICATION_PROVIDER 仅支持 deepseek 或 qwen")
+    raise ClassificationError("商品分类提供商仅支持 deepseek 或 qwen")
 
 
-def provider_is_configured() -> bool:
+def provider_is_configured(provider: str | None = None) -> bool:
     try:
-        return bool(provider_settings().api_key)
+        return bool(provider_settings(provider).api_key)
     except ClassificationError:
         return False
+
+
+def upload_provider_name() -> str:
+    return os.environ.get("UPLOAD_CLASSIFICATION_PROVIDER", "qwen").strip().lower()
+
+
+def idle_provider_name() -> str:
+    return os.environ.get("IDLE_CLASSIFICATION_PROVIDER", "deepseek").strip().lower()

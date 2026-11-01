@@ -69,29 +69,27 @@ crontab -e
 
 ## 2.6 商品分类与高维可视化
 
-实际配置位置为 `/opt/algo-observer-server/.env`，`docker-compose.yml` 的 `env_file` 会把变量传给 web 容器。提供商默认值与解析代码位于 `api/app/classification_config.py`。只需配置所选服务的真实密钥，不要把密钥提交到 Git。
-
-DeepSeek（默认）：
+实际配置位置为 `/opt/algo-observer-server/.env`，`docker-compose.yml` 的 `env_file` 会把变量传给 web 容器。提供商默认值与解析代码位于 `api/app/classification_config.py`。上传自动分类和闲时补全分别配置密钥，不要把密钥提交到 Git。
 
 ```text
+UPLOAD_CLASSIFICATION_PROVIDER=qwen
+IDLE_CLASSIFICATION_PROVIDER=deepseek
 CLASSIFICATION_PROVIDER=deepseek
+
 DEEPSEEK_API_KEY=replace-with-deepseek-secret
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 DEEPSEEK_MODEL=deepseek-flash
-```
 
-Qwen（阿里云百炼 OpenAI 兼容接口）：
-
-```text
-CLASSIFICATION_PROVIDER=qwen
 QWEN_API_KEY=replace-with-qwen-secret
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 QWEN_MODEL=qwen3.7-flash
 ```
 
-`QWEN_API_KEY` 也可改用 `DASHSCOPE_API_KEY`。只修改 `.env` 后运行 `docker compose up -d --force-recreate web`；更新代码后运行 `docker compose up -d --build`。
+`QWEN_API_KEY` 也可改用 `DASHSCOPE_API_KEY`。`UPLOAD_CLASSIFICATION_PROVIDER` 控制插件单条上报与数据池批量上行后的后台自动分类，`IDLE_CLASSIFICATION_PROVIDER` 控制每日补全，`CLASSIFICATION_PROVIDER` 控制管理员工具和页面分类；三者均支持 `deepseek` / `qwen`。只修改 `.env` 后运行 `docker compose up -d --force-recreate web`；更新代码后运行 `docker compose up -d --build`。
 
-阿里云常驻服务每天北京时间 **01:17** 自动检查一次，每轮最多分类 **100 个**没有缓存的商品，已有缓存不会重复调用模型。部署后无需等到第二天，可使用管理员密钥手动触发后台检查：
+每次上报成功入库后即异步调用上传分类模型，不阻塞 201 响应；已缓存或同一批重复商品不会重复调用。并发后台分类串行写缓存，临时失败不落缓存，等待闲时任务重试。
+
+阿里云常驻服务每天北京时间 **01:17** 自动使用 DeepSeek 检查一次，每轮最多分类 **100 个**没有缓存的商品，已有缓存不会重复调用模型。部署后无需等到第二天，可使用管理员密钥手动触发后台检查：
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/space/classification-check -H 'X-API-Key: 替换为管理员密钥'

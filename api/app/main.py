@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -269,7 +269,7 @@ def about_page():
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_ingest_or_admin)],  # 插件上报密钥 或 管理员密钥可写
 )
-def create_observation(payload: ObservationIn, db: Session = Depends(get_db)):
+def create_observation(payload: ObservationIn, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """写入一条观测：清洗校验 → 入库 → 维护 users 表（如带 anonymous_id）。
 
     插件直传用上报密钥；管理员也可在控制台手动补录（如线下采集的样本）。
@@ -305,6 +305,9 @@ def create_observation(payload: ObservationIn, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(obs)
+    from .classification_scheduler import schedule_upload_classification
+    from .space_api import _detached_product
+    schedule_upload_classification(background_tasks, [_detached_product(obs)])
     return ObservationCreated(
         observation_id=obs.observation_id,
         created_at=obs.created_at,

@@ -22,6 +22,25 @@ class ClassificationConfigTest(unittest.TestCase):
         self.assertEqual(settings.base_url, "https://api.deepseek.com/v1")
         self.assertFalse(provider_is_configured())
 
+    def test_upload_and_idle_providers_have_independent_defaults(self):
+        from app.classification_config import idle_provider_name, upload_provider_name
+
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "deep", "QWEN_API_KEY": "qwen"}, clear=True):
+            self.assertEqual(upload_provider_name(), "qwen")
+            self.assertEqual(idle_provider_name(), "deepseek")
+            self.assertEqual(provider_settings(upload_provider_name()).api_key, "qwen")
+            self.assertEqual(provider_settings(idle_provider_name()).api_key, "deep")
+
+    def test_upload_and_idle_providers_can_be_overridden(self):
+        from app.classification_config import idle_provider_name, upload_provider_name
+
+        with patch.dict(os.environ, {
+            "UPLOAD_CLASSIFICATION_PROVIDER": "deepseek",
+            "IDLE_CLASSIFICATION_PROVIDER": "qwen",
+        }, clear=True):
+            self.assertEqual(upload_provider_name(), "deepseek")
+            self.assertEqual(idle_provider_name(), "qwen")
+
     def test_qwen_uses_dashscope_compatible_defaults(self):
         with patch.dict(os.environ, {"CLASSIFICATION_PROVIDER": " QWEN ", "QWEN_API_KEY": "test-qwen"}, clear=True):
             settings = provider_settings()

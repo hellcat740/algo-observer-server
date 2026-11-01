@@ -242,6 +242,22 @@ class SpaceClassificationWorkerTest(unittest.TestCase):
         self.assertEqual(status["processed"], 101)
         self.assertEqual(status["total"], 101)
 
+    def test_worker_passes_explicit_provider_to_classifier(self):
+        providers = []
+
+        def classifier(db, products, provider=None):
+            providers.append(provider)
+            return {}, []
+
+        session = SimpleNamespace(close=lambda: None)
+        self.space_api.run_classification_worker(
+            self.products[:1],
+            session_factory=lambda: session,
+            classifier=classifier,
+            provider="qwen",
+        )
+        self.assertEqual(providers, ["qwen"])
+
     def test_worker_error_is_visible_and_not_left_running(self):
         def classifier(db, products):
             raise RuntimeError("private model failure")

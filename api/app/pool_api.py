@@ -20,7 +20,7 @@ import uuid as uuidlib
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
@@ -135,7 +135,12 @@ def _validate_pool_row(raw: dict[str, Any], warnings: list[str]) -> dict[str, An
 
 
 @router.post("/sync")
-def pool_sync(body: PoolSyncIn, user_id: str = Depends(require_user), db=Depends(get_db)):
+def pool_sync(
+    body: PoolSyncIn,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(require_user),
+    db=Depends(get_db),
+):
     """批量上行本机采集的观测。幂等：observation_id 已存在则跳过。"""
     if not body.items:
         return {"received": 0, "inserted": 0, "skipped": 0, "rejected": 0, "errors": []}
@@ -154,6 +159,7 @@ def pool_sync(body: PoolSyncIn, user_id: str = Depends(require_user), db=Depends
 
     inserted = 0
     skipped = 0
+    inserted_observations = []
     rejected: list[dict[str, str]] = []
     now = datetime.now(timezone.utc)
 
@@ -171,7 +177,9 @@ def pool_sync(body: PoolSyncIn, user_id: str = Depends(require_user), db=Depends
         if row["observation_id"] in existing:
             skipped += 1
             continue
-        db.add(Observation(**row, user_ref=user_id))
+        observation = Observation(**row, user_ref=user_id)
+        db.add(observation)
+        inserted_observations.append(observation)
         existing.add(row["observation_id"])
         inserted += 1
 
@@ -189,6 +197,13 @@ def pool_sync(body: PoolSyncIn, user_id: str = Depends(require_user), db=Depends
         user.observation_count = (user.observation_count or 0) + inserted
 
     db.commit()
+    if inserted_observations:
+        from .classification_scheduler import schedule_upload_classification
+        from .space_api import _detached_product
+        schedule_upload_classification(
+            background_tasks,
+            [_detached_product(observation) for observation in inserted_observations],
+        )
     return {
         "received": len(body.items),
         "inserted": inserted,
