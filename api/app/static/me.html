@@ -116,6 +116,7 @@
   <div class="nav-items">
     <a href="#" class="nav-item active" data-tab="me">📊 我的看板</a>
     <a href="#" class="nav-item" data-tab="overview">📈 数据池总览</a>
+    <a href="#" class="nav-item" data-tab="user-space">🌐 三维观测</a>
     <a href="#" class="nav-item" data-tab="lab">🔬 比对分析</a>
     <a href="#" class="nav-item" data-tab="about">📖 方法说明</a>
   </div>
@@ -181,6 +182,7 @@
 </div><!-- /tab-me -->
 
 <div class="tab-pane iframe-pane" id="tab-overview" style="display:none"><div class="iframe-loading">⏳ 加载中…</div></div>
+<div class="tab-pane iframe-pane" id="tab-user-space" style="display:none"><div class="iframe-loading">⏳ 加载中…</div></div>
 <div class="tab-pane iframe-pane" id="tab-lab" style="display:none"><div class="iframe-loading">⏳ 加载中…</div></div>
 <div class="tab-pane iframe-pane" id="tab-about" style="display:none"><div class="iframe-loading">⏳ 加载中…</div></div>
 </main>
@@ -405,7 +407,7 @@
   'use strict';
   /* ---------- 左侧导航：标签切换 + 同源 iframe 懒加载 + ?tab= 深链 ----------
      注意：本脚本位于身份脚本之后，hash 身份采纳逻辑已优先执行完毕。 */
-  var TAB_SRC = { overview: '/overview?embed=1', lab: '/lab?embed=1', about: '/about?embed=1' };
+  var TAB_SRC = { overview: '/overview?embed=1', 'user-space': '/user-space?embed=1', lab: '/lab?embed=1', about: '/about?embed=1' };
   var loaded = {};
   function forEach(list, fn) { Array.prototype.forEach.call(list, fn); }
 

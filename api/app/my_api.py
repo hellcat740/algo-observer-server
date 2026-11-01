@@ -10,7 +10,7 @@
 """
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy import func
 
 from .auth import require_user
@@ -61,6 +61,26 @@ def my_observations(
         .all()
     )
     return ObservationPage(total=total, page=page, page_size=page_size, items=items)
+
+
+@router.get("/space/points")
+def my_space_points(
+    background_tasks: BackgroundTasks,
+    limit: int = Query(default=20000, ge=1, le=20000),
+    relations: str | None = Query(default=None),
+    time_threshold_hours: float = Query(default=24, ge=0, le=8760),
+    db=Depends(get_db),
+):
+    """普通用户通过匿名身份读取脱敏三维观测点，无需管理员密钥。"""
+    from .space_api import space_points
+
+    return space_points(
+        background_tasks=background_tasks,
+        limit=limit,
+        relations=relations,
+        time_threshold_hours=time_threshold_hours,
+        db=db,
+    )
 
 
 @router.get("/stats", response_model=StatsSummary)

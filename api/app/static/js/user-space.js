@@ -317,16 +317,19 @@ function setData(data, mock = false) {
 }
 
 async function loadData() {
-  const key = localStorage.getItem(window.SPACE_STORAGE_KEY) || '';
-  if (!key) {
+  const userId = localStorage.getItem('obs_user_id') || '';
+  const adminKey = localStorage.getItem(window.SPACE_STORAGE_KEY) || '';
+  if (!userId && !adminKey) {
     setData(emptyData());
-    setStatus('请先在管理控制台登录');
+    setStatus('请先从我的看板进入，或登录管理控制台');
     return;
   }
+  const endpoint = userId ? '/api/my/space/points' : '/api/space/points';
+  const headers = userId ? {'X-User-Id': userId} : {'X-API-Key': adminKey};
   setStatus('正在读取观测数据…');
   try {
-    const response = await fetch('/api/space/points', {headers: {'X-API-Key': key}});
-    if (!response.ok) throw new Error(response.status === 401 ? '管理员会话已失效，请返回控制台重新登录' : `读取失败（${response.status}）`);
+    const response = await fetch(endpoint, {headers});
+    if (!response.ok) throw new Error(response.status === 401 ? '登录身份已失效，请重新进入看板' : `读取失败（${response.status}）`);
     setData(await response.json(), false);
     setStatus('数据已更新');
   } catch (error) {
