@@ -51,6 +51,12 @@
 生产建议：在 Vercel 环境变量中注入 `ADMIN_KEY`，并在插件发布后把上报密钥与
 `chrome-extension://` 来源收敛到自己的扩展 ID 与域名。
 
+## 插件商品规格采集
+
+- 当前插件版本为 **v1.2.0**。淘宝、天猫、京东和 Amazon.com 上报新增可空字段 `sku_id` 与 `selected_options`；后者为 `[{"name":"颜色","value":"黑色"}]` 形式的已选规格数组，未选择或无法识别时为空数组，不猜测选项。
+- 淘宝／天猫支持新版 `skuItem--` 结构，京东兼容经典 `sku-choose` 与新版 `specification-group`，Amazon 兼容 `#twister` 与新版 inline twister。SKU 与规格参与自动采集去重，同一商品切换规格后可分别记录。
+- 旧版服务端会自动补充 `sku_id`、`selected_options` 两列，旧记录保持空值；管理控制台展示 SKU 与已选规格。
+
 ## 商品分类与高维可视化
 
 - 管理入口为 `/visualization`，数据接口为 `GET /api/analysis/visualization-points`，复用管理员 `X-API-Key`。
