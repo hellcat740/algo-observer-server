@@ -33,6 +33,11 @@ class UserSpaceAccessTest(unittest.TestCase):
         self.assertIn("/api/my/space/points", self.source)
         self.assertNotIn("请先在管理控制台登录", self.source)
 
+    def test_user_space_admin_console_link_requires_login(self):
+        page = self.client.get("/user-space").text
+        self.assertIn('<a href="/admin-login">管理控制台</a>', page)
+        self.assertNotIn('<a href="/console">管理控制台</a>', page)
+
     def test_space_points_accept_user_id_and_still_require_identity(self):
         user_id = "123e4567-e89b-42d3-a456-426614174000"
         response = self.client.get("/api/my/space/points", headers={"X-User-Id": user_id})
