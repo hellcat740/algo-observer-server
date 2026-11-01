@@ -48,6 +48,18 @@ class UserSpacePageTest(unittest.TestCase):
         for module in ("user-space.js", "user-space-layout.js"):
             subprocess.run([NODE, "--check", str(API_DIR / "app" / "static" / "js" / module)], check=True)
 
+    def test_research_labels_stay_bright_after_shared_theme_loads(self):
+        page = self.client.get("/user-space").text
+        theme_position = page.index('href="/static/css/balance-theme.css"')
+        for marker in (
+            ".instrument-page h2{color:#fffdf7}",
+            ".instrument-page .scene-head span,.instrument-page .layers label",
+            ".instrument-page .legend,.instrument-page .detail",
+            ".instrument-page .legend i{color:#f6d98a}",
+        ):
+            self.assertIn(marker, page)
+            self.assertGreater(page.index(marker), theme_position)
+
     def test_original_space_links_to_user_cluster_space(self):
         self.assertIn('href="/user-space"', self.client.get("/space").text)
 
